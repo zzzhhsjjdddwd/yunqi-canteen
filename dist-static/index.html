@@ -1,206 +1,112 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#10B981" />
-  <meta name="description" content="云栖浅食 - 健康轻食在线点餐 PWA 双端入口" />
-  <meta name="keywords" content="云栖浅食,点餐,外卖,轻食,健康餐,沙拉,PWA" />
-  <meta name="author" content="云栖浅食" />
-
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="云栖浅食 - 健康轻食点餐" />
-  <meta property="og:description" content="新鲜食材，现做现送。一站式进入客户端 / 商家端。" />
-  <meta property="og:locale" content="zh_CN" />
-
-  <title>云栖浅食 · 入口</title>
-  <link rel="icon" type="image/svg+xml" href="./client/icons/favicon.svg" />
-  <link rel="apple-touch-icon" href="./client/icons/apple-touch-icon.png" />
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50:  '#FFFBEB',
-              100: '#FEF3C7',
-              200: '#FDE68A',
-              300: '#FCD34D',
-              400: '#FBBF24',
-              500: '#F59E0B',
-              600: '#D97706',
-              700: '#B45309',
-              800: '#92400E',
-              900: '#78350F',
-            },
-            leaf: {
-              50:  '#ECFDF5',
-              100: '#D1FAE5',
-              200: '#A7F3D0',
-              300: '#6EE7B7',
-              400: '#34D399',
-              500: '#10B981',
-              600: '#059669',
-              700: '#047857',
-              800: '#065F46',
-              900: '#064E3B',
-            }
-          },
-          fontFamily: {
-            sans: ['"PingFang SC"', '"Microsoft YaHei"', '"Helvetica Neue"', 'Helvetica', 'Arial', 'sans-serif'],
-          },
-          boxShadow: {
-            'soft': '0 10px 30px -10px rgba(16, 185, 129, 0.25)',
-            'card': '0 6px 24px -8px rgba(0,0,0,0.12)',
-          },
-          animation: {
-            'float': 'float 6s ease-in-out infinite',
-            'fade-up': 'fadeUp .8s ease-out both',
-          },
-          keyframes: {
-            float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
-            fadeUp: { '0%': { opacity: 0, transform: 'translateY(12px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
-          }
-        }
-      }
-    }
-  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>云栖浅食 - 健康轻食点餐系统</title>
   <style>
-    html, body { height: 100%; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background:
-        radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,0.18), transparent 60%),
-        radial-gradient(900px 500px at -10% 110%, rgba(245,158,11,0.18), transparent 60%),
-        linear-gradient(180deg, #FFFBEB 0%, #ECFDF5 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
-    .grain {
-      background-image: radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px);
-      background-size: 18px 18px;
+    .container {
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
     }
-    .ring-leaf { box-shadow: 0 0 0 6px rgba(16,185,129,0.08), 0 0 0 1px rgba(16,185,129,0.15) inset; }
-    .ring-brand { box-shadow: 0 0 0 6px rgba(245,158,11,0.10), 0 0 0 1px rgba(245,158,11,0.20) inset; }
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: 20px;
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3);
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #065f46;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 16px;
+      color: #047857;
+      margin-bottom: 40px;
+      opacity: 0.8;
+    }
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      border: 1px solid #d1fae5;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15);
+      border-color: #10b981;
+    }
+    .card-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #065f46;
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
   </style>
 </head>
-<body class="text-slate-800 antialiased">
-  <div class="grain">
-    <!-- Header -->
-    <header class="max-w-5xl mx-auto px-5 pt-6 flex items-center justify-between">
-      <a href="./" class="flex items-center gap-2 group">
-        <span class="text-2xl animate-float">🍜</span>
-        <span class="font-bold text-lg tracking-wide">
-          云栖<span class="text-leaf-600">浅食</span>
-        </span>
+<body>
+  <div class="container">
+    <div class="logo">🥗</div>
+    <h1>云栖浅食</h1>
+    <p class="subtitle">健康轻食 · 新鲜食材 · 现做现送</p>
+    
+    <div class="cards">
+      <a href="./client/" class="card">
+        <div class="card-icon">🍱</div>
+        <div class="card-title">顾客端</div>
+        <div class="card-desc">浏览菜单、在线点餐、查看订单</div>
       </a>
-      <nav class="hidden sm:flex items-center gap-6 text-sm text-slate-600">
-        <a href="#apps" class="hover:text-leaf-600 transition">应用</a>
-        <a href="./install.html" class="hover:text-leaf-600 transition">安装</a>
-        <a href="./qr.html" class="hover:text-leaf-600 transition">二维码</a>
-        <a href="https://github.com/" target="_blank" rel="noopener" class="hover:text-leaf-600 transition">源码</a>
-      </nav>
-    </header>
-
-    <!-- Hero -->
-    <section class="max-w-5xl mx-auto px-5 pt-10 sm:pt-16 pb-8 text-center animate-fade-up">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-leaf-100 text-leaf-700 text-xs font-medium mb-5">
-        <span class="w-1.5 h-1.5 rounded-full bg-leaf-500"></span>
-        PWA · 离线可用 · 桌面 / 主屏
-      </div>
-      <h1 class="text-3xl sm:text-5xl font-extrabold leading-tight tracking-tight">
-        新鲜食材，<span class="text-leaf-600">现做现送</span>
-      </h1>
-      <p class="mt-4 text-slate-600 max-w-xl mx-auto text-sm sm:text-base">
-        一站式选择进入：我是顾客想点餐，或我是商家要管理订单。
-        支持安装到手机主屏，像原生 App 一样使用。
-      </p>
-    </section>
-
-    <!-- Apps -->
-    <section id="apps" class="max-w-5xl mx-auto px-5 pb-12">
-      <div class="grid sm:grid-cols-2 gap-5 sm:gap-6">
-        <!-- Client -->
-        <a href="./client/" class="group relative overflow-hidden rounded-2xl bg-white shadow-card hover:shadow-soft transition p-6 sm:p-8 border border-leaf-100">
-          <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-leaf-100/70 group-hover:scale-125 transition-transform duration-500"></div>
-          <div class="relative">
-            <div class="flex items-center gap-3">
-              <div class="ring-leaf w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-leaf-50">🍽️</div>
-              <div>
-                <div class="text-xs uppercase tracking-wider text-leaf-600 font-semibold">CUSTOMER</div>
-                <div class="text-lg font-bold">我要点餐</div>
-              </div>
-            </div>
-            <p class="mt-4 text-sm text-slate-600 leading-relaxed">
-              浏览当日菜单，加入购物车，下单支付，实时查看订单状态。
-            </p>
-            <ul class="mt-4 space-y-1.5 text-xs text-slate-500">
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-leaf-500"></span>当日新鲜食材</li>
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-leaf-500"></span>实时订单追踪</li>
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-leaf-500"></span>支持添加到主屏</li>
-            </ul>
-            <div class="mt-6 inline-flex items-center gap-1.5 text-leaf-700 text-sm font-semibold group-hover:gap-3 transition-all">
-              进入客户端 <span aria-hidden="true">→</span>
-            </div>
-          </div>
-        </a>
-
-        <!-- Admin -->
-        <a href="./admin/" class="group relative overflow-hidden rounded-2xl bg-white shadow-card hover:shadow-soft transition p-6 sm:p-8 border border-brand-100">
-          <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-brand-100/70 group-hover:scale-125 transition-transform duration-500"></div>
-          <div class="relative">
-            <div class="flex items-center gap-3">
-              <div class="ring-brand w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-brand-50">📊</div>
-              <div>
-                <div class="text-xs uppercase tracking-wider text-brand-600 font-semibold">MERCHANT</div>
-                <div class="text-lg font-bold">我是商家</div>
-              </div>
-            </div>
-            <p class="mt-4 text-sm text-slate-600 leading-relaxed">
-              订单提醒、商品上下架、用户管理、系统设置。
-            </p>
-            <ul class="mt-4 space-y-1.5 text-xs text-slate-500">
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-brand-500"></span>实时新订单提示</li>
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-brand-500"></span>商品与分类管理</li>
-              <li class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-brand-500"></span>支持横屏优化</li>
-            </ul>
-            <div class="mt-6 inline-flex items-center gap-1.5 text-brand-700 text-sm font-semibold group-hover:gap-3 transition-all">
-              进入商家端 <span aria-hidden="true">→</span>
-            </div>
-          </div>
-        </a>
-      </div>
-    </section>
-
-    <!-- Install / QR -->
-    <section class="max-w-5xl mx-auto px-5 pb-16 grid sm:grid-cols-2 gap-4">
-      <a href="./install.html" class="rounded-xl border border-slate-200 bg-white/70 backdrop-blur p-5 flex items-center gap-4 hover:bg-white transition">
-        <div class="w-11 h-11 rounded-lg bg-leaf-100 text-leaf-700 flex items-center justify-center text-xl">📲</div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold">安装到桌面 / 主屏</div>
-          <div class="text-xs text-slate-500">iOS / Android / 桌面浏览器 步骤图解</div>
-        </div>
-        <span class="text-slate-400">→</span>
+      <a href="./admin/" class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">商家管理后台</div>
+        <div class="card-desc">订单管理、商品管理、数据统计</div>
       </a>
-      <a href="./qr.html" class="rounded-xl border border-slate-200 bg-white/70 backdrop-blur p-5 flex items-center gap-4 hover:bg-white transition">
-        <div class="w-11 h-11 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-xl">🔳</div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold">扫码访问</div>
-          <div class="text-xs text-slate-500">打印或分享二维码，顾客扫码即用</div>
-        </div>
-        <span class="text-slate-400">→</span>
-      </a>
-    </section>
-
-    <!-- Footer -->
-    <footer class="max-w-5xl mx-auto px-5 pb-10 text-center text-xs text-slate-500">
-      <div>© <span id="year"></span> 云栖浅食 · YunQi Canteen</div>
-      <div class="mt-1">用 <span class="text-leaf-600">新鲜</span> 与 <span class="text-brand-600">诚意</span> 做好每一餐</div>
-    </footer>
+    </div>
+    
+    <div class="footer">
+      © 2024 云栖浅食 · 健康每一餐
+    </div>
   </div>
-
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
 </body>
 </html>

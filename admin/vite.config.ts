@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const API_URL = env.VITE_API_URL || '';
 
   return {
+    base: mode === 'production' ? '/yunqi-canteen/admin/' : '/',
     plugins: [
       react(),
       VitePWA({
