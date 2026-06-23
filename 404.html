@@ -52,22 +52,49 @@
     }
     .links a:hover { text-decoration: underline; }
   </style>
+  <script>
+    // 智能 SPA 路由回退
+    (function() {
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      var fullPath = path + search + hash;
+
+      // 判断属于哪个子应用
+      var targetBase = '';
+      var relativePath = '';
+
+      if (path.indexOf('/yunqi-canteen/client/') === 0 || path === '/yunqi-canteen/client') {
+        targetBase = '/yunqi-canteen/client/';
+        relativePath = path.replace('/yunqi-canteen/client', '') || '/';
+      } else if (path.indexOf('/yunqi-canteen/admin/') === 0 || path === '/yunqi-canteen/admin') {
+        targetBase = '/yunqi-canteen/admin/';
+        relativePath = path.replace('/yunqi-canteen/admin', '') || '/';
+      } else {
+        // 其他情况回到引导首页
+        window.location.href = './';
+        return;
+      }
+
+      // 保存原始路径，应用加载后可以恢复
+      try {
+        sessionStorage.setItem('spa-redirect-path', relativePath + search + hash);
+      } catch (e) {}
+
+      // 重定向到应用首页
+      window.location.replace(targetBase);
+    })();
+  </script>
 </head>
 <body>
   <div class="card">
     <h1>🥗 云栖浅食</h1>
-    <p>页面即将跳转...</p>
+    <p>正在跳转...</p>
     <a href="./" class="btn">返回首页</a>
     <div class="links">
       <a href="./client/">客户端点餐</a>
       <a href="./admin/">商家后台</a>
     </div>
   </div>
-  <script>
-    // 自动重定向到首页
-    setTimeout(function() {
-      window.location.href = './';
-    }, 1500);
-  </script>
 </body>
 </html>
