@@ -1,8 +1,8 @@
 import type { Category, Product, Order, StatsData, Settings } from '../../../shared/types';
 
 // In development: Vite proxies /api to localhost:3001
-// In production: Vercel rewrites /api to VITE_API_URL (configured in vercel.json)
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// In production: uses Railway backend
+const API_BASE = import.meta.env.VITE_API_URL || 'https://yunqi-canteen-production.up.railway.app';
 
 async function request<T>(path: string, options?: RequestInit, authenticated = false): Promise<T> {
   const token = localStorage.getItem('admin-token');

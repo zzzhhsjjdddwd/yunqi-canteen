@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Package, CheckCircle2, XCircle, ChefHat, Home, RefreshCw, CreditCard, XOctagon, MapPin, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Clock, Package, CheckCircle2, XCircle, ChefHat, Home, RefreshCw, CreditCard, XOctagon, MapPin } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import OrderStatus from '../components/OrderStatus';
 import { OrdersPageSkeleton, EmptyState } from '../components/Loading';

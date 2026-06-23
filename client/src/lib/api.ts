@@ -1,8 +1,8 @@
 import type { Category, Product, Order, CreateOrderRequest, User, Address, AuthResponse } from '../../../shared/types';
 import { useAuthStore } from '../stores/authStore';
 
-// API请求基础路径 - 开发环境通过Vite代理，生产环境通过Vercel rewrites
-const API_BASE = '';
+// API请求基础路径 - 开发环境通过Vite代理，生产环境使用Railway后端
+const API_BASE = 'https://yunqi-canteen-production.up.railway.app';
 
 function getHeaders(): HeadersInit {
   const token = useAuthStore.getState().token;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Volume2, VolumeX, ShoppingBag, TrendingUp, Package, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { Clock, Volume2, VolumeX, ShoppingBag, TrendingUp, Package } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Switch } from '../components/ui/Switch';
 import { EmptyState, DashboardPageSkeleton } from '../components/Loading';

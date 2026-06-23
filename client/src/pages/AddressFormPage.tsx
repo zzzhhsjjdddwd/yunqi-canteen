@@ -11,8 +11,6 @@ export default function AddressFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { addAddress, updateAddress: updateStoreAddress } = useAddressStore();
-  // 显式判断 isNew 模式：路由 /addresses/new 时 id === 'new'，避免与 /:id 冲突
-  const isNew = id === 'new' || !id;
   const isEditing = !!id && id !== 'new';
 
   const [loading, setLoading] = useState(false);

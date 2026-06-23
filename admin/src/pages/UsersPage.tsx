@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, User, MapPin, ShoppingBag, Trash2, Eye, ChevronLeft, ChevronRight, Users as UsersIcon, Loader2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Search, User, MapPin, ShoppingBag, Trash2, Eye, ChevronLeft, ChevronRight, Loader2, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/Dialog';
