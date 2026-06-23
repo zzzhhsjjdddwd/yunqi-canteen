@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>安装引导 - 云栖浅食</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      padding: 40px 0 30px;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: 20px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.3);
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #065f46;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #047857;
+      opacity: 0.8;
+    }
+    .section {
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #d1fae5;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #065f46;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-icon {
+      font-size: 20px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .step-number {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .step-content {
+      flex: 1;
+      font-size: 14px;
+      color: #374151;
+      line-height: 1.5;
+    }
+    .step-content strong {
+      color: #065f46;
+    }
+    .tip {
+      background: #ecfdf5;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #065f46;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    .cards {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .entry-card {
+      flex: 1;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      text-decoration: none;
+      color: white;
+      transition: transform 0.2s;
+    }
+    .entry-card:active {
+      transform: scale(0.98);
+    }
+    .entry-card-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .entry-card-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .footer {
+      text-align: center;
+      padding: 30px 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🥗</div>
+      <h1>云栖浅食</h1>
+      <p class="subtitle">安装到桌面，随时点餐更方便</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <span class="section-icon">📱</span>
+        安装到手机桌面
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            点击浏览器底部的 <strong>分享按钮</strong>（或右上角菜单）
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            向下滑动，找到并点击 <strong>"添加到主屏幕"</strong>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            点击右上角的 <strong>"添加"</strong> 按钮
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            返回桌面，找到 <strong>"云栖浅食"</strong> 图标点击打开
+          </div>
+        </div>
+      </div>
+      <div class="tip">
+        💡 添加到桌面后，体验和原生 App 一样流畅，还支持离线访问菜单哦！
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">
+        <span class="section-icon">🚀</span>
+        立即体验
+      </div>
+      <div class="cards">
+        <a href="./client/" class="entry-card">
+          <div class="entry-card-icon">🍱</div>
+          <div class="entry-card-title">顾客端</div>
+        </a>
+        <a href="./admin/" class="entry-card">
+          <div class="entry-card-icon">📊</div>
+          <div class="entry-card-title">商家端</div>
+        </a>
+      </div>
+    </div>
+
+    <div class="footer">
+      © 2024 云栖浅食 · 健康每一餐
+    </div>
+  </div>
+</body>
+</html>

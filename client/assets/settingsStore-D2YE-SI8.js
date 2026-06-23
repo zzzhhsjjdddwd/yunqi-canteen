@@ -1,0 +1,1 @@
+import{d as n,p as s}from"./index-C9hiYanf.js";const l=n()(s(e=>({paymentQR:null,installPromptEvent:null,setPaymentQR:t=>e({paymentQR:t}),setInstallPromptEvent:t=>e({installPromptEvent:t})}),{name:"settings-storage"}));export{l as u};
