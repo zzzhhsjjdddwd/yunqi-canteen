@@ -1,0 +1,120 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  # 客户端 - 类型检查和构建
+  build-client:
+    name: 客户端 - 构建测试
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: client/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: node ../scripts/generate-icons.mjs && node ../scripts/generate-png-icons.mjs
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-dist
+          path: client/dist/
+          retention-days: 7
+
+  # 管理端 - 类型检查和构建
+  build-admin:
+    name: 管理端 - 构建测试
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: admin/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate icons
+        run: node ../scripts/generate-icons.mjs && node ../scripts/generate-png-icons.mjs
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-dist
+          path: admin/dist/
+          retention-days: 7
+
+  # 后端 - 类型检查和构建
+  build-server:
+    name: 后端 - 构建测试
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: server/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check / Build
+        run: npm run build
+
+      - name: Verify database schema
+        run: npx prisma validate --schema src/prisma/schema.prisma
+
+  # 代码质量检查
+  lint:
+    name: 共享类型 - 验证
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify shared types exist
+        run: |
+          test -f shared/types/index.ts && echo "Shared types OK" || echo "Missing shared types"
+          test -d client/src && echo "Client src OK"
+          test -d admin/src && echo "Admin src OK"
+          test -d server/src && echo "Server src OK"

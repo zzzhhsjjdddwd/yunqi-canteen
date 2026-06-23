@@ -1,0 +1,30 @@
+{
+  "name": "yunqi-ordering-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "云栖浅食 - 完整的餐饮点餐系统（PWA双端）",
+  "type": "module",
+  "scripts": {
+    "dev": "npm-run-all -p dev:server dev:client dev:admin",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev:admin": "cd admin && npm run dev",
+    "build": "npm-run-all -s build:client build:admin build:server",
+    "build:client": "cd client && npm run build",
+    "build:admin": "cd admin && npm run build",
+    "build:server": "cd server && npm run build",
+    "preview": "npm-run-all -p preview:client preview:admin",
+    "preview:client": "cd client && npm run preview",
+    "preview:admin": "cd admin && npm run preview",
+    "start": "cd server && npm run start",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:png-icons": "node scripts/generate-png-icons.mjs",
+    "install:all": "npm install && cd client && npm install && cd ../admin && npm install && cd ../server && npm install",
+    "db:push": "cd server && npm run db:push",
+    "db:seed": "cd server && npm run db:seed"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5",
+    "npm-run-all": "^4.1.5"
+  }
+}

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#10B981" />
+  <meta name="description" content="云栖浅食 PWA 安装引导 - iOS / Android / 桌面" />
+  <title>安装云栖浅食 · PWA 引导</title>
+  <link rel="icon" type="image/svg+xml" href="./client/icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="./client/icons/apple-touch-icon.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#FFFBEB',100:'#FEF3C7',500:'#F59E0B',600:'#D97706',700:'#B45309' },
+            leaf:  { 50:'#ECFDF5',100:'#D1FAE5',500:'#10B981',600:'#059669',700:'#047857' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background: linear-gradient(180deg, #FFFBEB 0%, #ECFDF5 100%);
+      min-height: 100%;
+    }
+    .step-num { width:28px; height:28px; border-radius:9999px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; }
+  </style>
+</head>
+<body class="text-slate-800 antialiased">
+  <div class="max-w-3xl mx-auto px-5 py-8">
+    <!-- Back -->
+    <div class="mb-6">
+      <a href="./" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-leaf-600 transition">
+        <span>←</span> 返回首页
+      </a>
+    </div>
+
+    <!-- Title -->
+    <header class="text-center mb-8">
+      <div class="text-4xl mb-3">📲</div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold">安装到主屏</h1>
+      <p class="mt-2 text-sm text-slate-600">像原生 App 一样使用 · 离线可访问 · 启动更快</p>
+    </header>
+
+    <!-- Platform Cards -->
+    <div class="grid sm:grid-cols-2 gap-4 mb-8" id="platform-cards">
+      <a href="./install-client.html" class="rounded-xl border border-leaf-200 bg-white p-5 hover:shadow-md transition flex items-center gap-4">
+        <div class="w-12 h-12 rounded-lg bg-leaf-100 text-leaf-700 flex items-center justify-center text-2xl">🍽️</div>
+        <div class="flex-1">
+          <div class="font-semibold">客户端</div>
+          <div class="text-xs text-slate-500">我要点餐 · 顾客端安装引导</div>
+        </div>
+        <span class="text-slate-400">→</span>
+      </a>
+      <a href="./install-admin.html" class="rounded-xl border border-brand-200 bg-white p-5 hover:shadow-md transition flex items-center gap-4">
+        <div class="w-12 h-12 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-2xl">📊</div>
+        <div class="flex-1">
+          <div class="font-semibold">商家端</div>
+          <div class="text-xs text-slate-500">我是商家 · 商家端安装引导</div>
+        </div>
+        <span class="text-slate-400">→</span>
+      </a>
+    </div>
+
+    <!-- iOS Safari -->
+    <section id="ios" class="mb-6 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-2xl">🍎</span>
+        <h2 class="text-lg font-bold">iPhone / iPad · Safari</h2>
+      </div>
+      <ol class="space-y-4 text-sm">
+        <li class="flex gap-3"><span class="step-num bg-leaf-100 text-leaf-700">1</span><div>在 Safari 打开本页面（必须是 Safari 浏览器）。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-leaf-100 text-leaf-700">2</span><div>点击底部的 <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100">分享按钮</span>（一个向上箭头的方框）。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-leaf-100 text-leaf-700">3</span><div>向下滑动并选择 <span class="font-semibold">「添加到主屏幕」</span>。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-leaf-100 text-leaf-700">4</span><div>点击右上角 <span class="font-semibold">「添加」</span> 完成。</div></li>
+      </ol>
+      <div class="mt-4 text-xs text-slate-500">提示：iOS PWA 仅在 Safari 中可安装；Chrome / 其他浏览器需先复制到 Safari。</div>
+    </section>
+
+    <!-- Android Chrome -->
+    <section id="android" class="mb-6 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-2xl">🤖</span>
+        <h2 class="text-lg font-bold">Android · Chrome / Edge</h2>
+      </div>
+      <ol class="space-y-4 text-sm">
+        <li class="flex gap-3"><span class="step-num bg-brand-100 text-brand-700">1</span><div>在 Chrome / Edge 中打开本页面。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-brand-100 text-brand-700">2</span><div>点击右上角菜单 <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100">⋮</span>，选择 <span class="font-semibold">「添加到主屏幕」</span> 或「安装应用」。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-brand-100 text-brand-700">3</span><div>在弹窗中确认名称，点击 <span class="font-semibold">「添加」</span>。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-brand-100 text-brand-700">4</span><div>主屏出现图标，点击即可像 App 一样启动。</div></li>
+      </ol>
+      <div class="mt-4">
+        <button id="btn-android" class="hidden w-full sm:w-auto bg-leaf-600 hover:bg-leaf-700 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition">
+          ⬇ 立即安装（浏览器提示）
+        </button>
+      </div>
+    </section>
+
+    <!-- Desktop -->
+    <section id="desktop" class="mb-6 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-2xl">💻</span>
+        <h2 class="text-lg font-bold">桌面 · Chrome / Edge</h2>
+      </div>
+      <ol class="space-y-4 text-sm">
+        <li class="flex gap-3"><span class="step-num bg-slate-100 text-slate-700">1</span><div>地址栏右侧会出现 <span class="inline-block px-1.5 py-0.5 rounded bg-slate-100">安装图标</span>（电脑+向下箭头）。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-slate-100 text-slate-700">2</span><div>点击后在弹窗中确认 <span class="font-semibold">「安装」</span>。</div></li>
+        <li class="flex gap-3"><span class="step-num bg-slate-100 text-slate-700">3</span><div>完成后可从「开始菜单 / 启动器」独立启动。</div></li>
+      </ol>
+      <div class="mt-4">
+        <button id="btn-desktop" class="hidden w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition">
+          ⬇ 安装到桌面（浏览器提示）
+        </button>
+      </div>
+    </section>
+
+    <!-- Tips -->
+    <section class="text-xs text-slate-500 bg-white/60 border border-slate-200 rounded-xl p-4">
+      <div class="font-semibold text-slate-700 mb-1">小提示</div>
+      安装后可离线浏览菜单、查看历史订单；新订单与商品更新需要联网。
+    </section>
+  </div>
+
+  <script>
+    // 简易平台检测 + beforeinstallprompt 捕获
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    const isAndroid = /Android/.test(ua);
+    const isMobile = isIOS || isAndroid || /Mobi|Android/i.test(ua);
+
+    // 隐藏非本平台的章节，弱化显示
+    function hint(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const h = el.querySelector('h2');
+      if (h) h.innerHTML += ' <span class="ml-2 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-leaf-100 text-leaf-700 font-semibold">推荐</span>';
+    }
+    if (isIOS) hint('ios');
+    else if (isAndroid) hint('android');
+    else hint('desktop');
+
+    let deferred = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferred = e;
+      if (isAndroid) document.getElementById('btn-android').classList.remove('hidden');
+      else document.getElementById('btn-desktop').classList.remove('hidden');
+    });
+    function install() {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.finally(() => { deferred = null; });
+    }
+    document.getElementById('btn-android')?.addEventListener('click', install);
+    document.getElementById('btn-desktop')?.addEventListener('click', install);
+
+    window.addEventListener('appinstalled', () => {
+      alert('已成功安装云栖浅食！');
+    });
+  </script>
+</body>
+</html>

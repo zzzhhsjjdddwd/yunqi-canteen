@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs (we only ship dist-static/)
+dist/
+**/dist/
+!dist-static/
+!dist-static/**
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+server/server.log
+server/server.err.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+**/.env
+!server/.env.example
+!client/.env.production.example
+!admin/.env.production.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tsbuildinfo
+.cache/
+.tmp/
+coverage/
+
+# Test artifacts
+test_*.png
+test_*.js
+test_*.txt
+admin-*.png
+client-*.png
+!test_*.config.js

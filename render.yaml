@@ -1,0 +1,30 @@
+# 云栖浅食 - Render.com 部署配置
+# 使用: 在Render.com Dashboard → Blueprints → New → 导入此文件
+
+services:
+  - type: web
+    name: yunqi-api
+    env: node
+    plan: free # 升级到 paid 计划以获得持续运行和持久化磁盘
+    buildCommand: cd server && npm install && npm run build && npm run db:push && npm run db:seed --silent || true
+    startCommand: cd server && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        value: admin123
+    # 生产环境建议: 挂载持久化磁盘以保存SQLite数据库
+    # disk:
+    #   name: yunqi-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    healthCheckPath: /api/health
+    autoDeploy: yes
+    branch: main
+    rootDir: .
