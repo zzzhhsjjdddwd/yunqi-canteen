@@ -104,6 +104,82 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// 登录注册一体化
+router.post('/auth', async (req, res) => {
+  try {
+    const { phone, password, nickname } = req.body;
+
+    if (!phone || !password) {
+      return res.status(400).json({ error: '手机号和密码不能为空' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: '密码至少6位' });
+    }
+
+    // 查找用户
+    const existingUser = await prisma.user.findUnique({
+      where: { phone },
+    });
+
+    if (existingUser) {
+      // 用户已存在，验证密码并登录
+      const validPassword = await bcrypt.compare(password, existingUser.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: '密码错误' });
+      }
+
+      const token = jwt.sign(
+        { userId: existingUser.id, phone: existingUser.phone },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      return res.json({
+        token,
+        user: {
+          id: existingUser.id,
+          phone: existingUser.phone,
+          nickname: existingUser.nickname,
+          avatar: existingUser.avatar,
+        },
+        isNewUser: false,
+      });
+    } else {
+      // 用户不存在，创建新用户并登录
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await prisma.user.create({
+        data: {
+          phone,
+          password: hashedPassword,
+          nickname: nickname || `用户${phone.slice(-4)}`,
+        },
+      });
+
+      const token = jwt.sign(
+        { userId: user.id, phone: user.phone },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      return res.json({
+        token,
+        user: {
+          id: user.id,
+          phone: user.phone,
+          nickname: user.nickname,
+          avatar: user.avatar,
+        },
+        isNewUser: true,
+      });
+    }
+  } catch (error) {
+    console.error('Auth error:', error);
+    res.status(500).json({ error: '操作失败' });
+  }
+});
+
 // 获取当前用户信息
 router.get('/me', async (req, res) => {
   try {

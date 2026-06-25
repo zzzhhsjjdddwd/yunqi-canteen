@@ -41,7 +41,10 @@ model Order {
   status        String      @default("pending")
   paymentStatus String      @default("unpaid")
   remark        String?
+  deletedByUser Boolean     @default(false)
   items         OrderItem[]
+  transactions  Transaction[]
+  invoices      Invoice[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }
@@ -98,4 +101,65 @@ model Address {
   orders    Order[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// 财务交易记录
+model Transaction {
+  id            String   @id @default(cuid())
+  type          String   // income:收入 / expense:支出 / transfer:转账
+  category      String   // 分类：销售收入、退款、采购成本、人工成本、运营费用等
+  amount        Int      // 金额，单位：分
+  balanceAfter  Int      // 交易后余额，单位：分
+  orderId       String?  // 关联订单（收入/退款时）
+  order         Order?   @relation(fields: [orderId], references: [id])
+  description   String?  // 描述
+  remark        String?  // 备注
+  operator      String?  // 操作人
+  referenceNo   String?  // 参考号（交易流水号）
+  paymentMethod String?  // 支付方式：wechat/alipay/cash/bank
+  status        String   @default("completed") // completed/pending/failed/cancelled
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type, createdAt])
+  @@index([category, createdAt])
+  @@index([status, createdAt])
+}
+
+// 财务分类
+model FinanceCategory {
+  id         String   @id @default(cuid())
+  name       String   // 分类名称
+  type       String   // income / expense
+  icon       String?  // 图标
+  color      String?  // 颜色
+  sortOrder  Int      @default(0)
+  isSystem   Boolean  @default(false) // 是否系统内置
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// 账单/发票
+model Invoice {
+  id           String   @id @default(cuid())
+  invoiceNo    String   @unique // 账单编号
+  type         String   // sale:销售账单 / expense:支出账单 / refund:退款账单
+  amount       Int      // 金额，单位：分
+  status       String   @default("unpaid") // unpaid/paid/cancelled/refunded
+  orderId      String?  // 关联订单
+  order        Order?   @relation(fields: [orderId], references: [id])
+  customerName String?  // 客户名称
+  customerPhone String? // 客户电话
+  issuedAt     DateTime? // 开票日期
+  paidAt       DateTime? // 支付日期
+  dueDate      DateTime? // 到期日期
+  items        Json?    // 账单明细
+  remark       String?  // 备注
+  operator     String?  // 操作人
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([type, status, createdAt])
+  @@index([invoiceNo])
 }

@@ -24,7 +24,7 @@
     "db:seed": "cd server && npm run db:seed"
   },
   "devDependencies": {
-    "sharp": "^0.33.5",
-    "npm-run-all": "^4.1.5"
+    "npm-run-all": "^4.1.5",
+    "sharp": "^0.33.5"
   }
 }

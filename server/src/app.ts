@@ -102,6 +102,10 @@ app.use((req, res, next) => {
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Static files for client and admin
+app.use('/admin', express.static(path.join(__dirname, '../../dist-static/admin')));
+app.use('/', express.static(path.join(__dirname, '../../dist-static/client')));
+
 // Health check endpoint (required for Render/other hosts)
 app.get('/api/health', (req, res) => {
   res.json({
@@ -120,6 +124,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import addressRoutes from './routes/addressRoutes.js';
 import adminAuthRoutes from './routes/adminAuthRoutes.js';
 import adminUserRoutes from './routes/adminUserRoutes.js';
+import financeRoutes from './routes/financeRoutes.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/addresses', addressRoutes);
@@ -132,6 +137,7 @@ app.use('/api/admin/orders', authMiddleware, orderRoutes);
 app.use('/api/admin/products', productRoutes);
 app.use('/api/admin/categories', categoryRoutes);
 app.use('/api/admin/settings', settingsRoutes);
+app.use('/api/admin/finance', authMiddleware, financeRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // Socket setup
@@ -143,6 +149,15 @@ app.use(errorHandler);
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// SPA fallback for React Router - must be AFTER all API routes
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/admin')) {
+    res.sendFile(path.join(__dirname, '../../dist-static/admin', 'index.html'));
+  } else {
+    res.sendFile(path.join(__dirname, '../../dist-static/client', 'index.html'));
+  }
 });
 
 export { app, httpServer, upload };

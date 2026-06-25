@@ -55,9 +55,9 @@ router.post("/", async (req, res) => {
     const orderNo = generateOrderNo();
     const order = await prisma.order.create({
       data: {
-        orderNo, total: Math.round(total * 100), status: "pending", paymentStatus: "unpaid",
+        orderNo, total: Math.round(total), status: "pending", paymentStatus: "unpaid",
         remark, userId, addressId,
-        items: { create: items.map((item: any) => ({ productId: item.productId, productName: item.productName, price: Math.round(item.price * 100), quantity: item.quantity })) },
+        items: { create: items.map((item: any) => ({ productId: item.productId, productName: item.productName, price: Math.round(item.price), quantity: item.quantity })) },
       },
       include: { items: true, address: { select: { id: true, name: true, phone: true, province: true, city: true, district: true, detail: true } }, user: { select: { id: true, nickname: true, phone: true, avatar: true } } },
     });
@@ -80,7 +80,7 @@ router.get("/", optionalAuth, async (req: AuthRequest, res, next) => {
   if (!req.userId) return res.json([]);
   try {
     const { status, paymentStatus, limit = 50 } = req.query;
-    const where: any = { userId: req.userId };
+    const where: any = { userId: req.userId, deletedByUser: false };
     if (status) where.status = status;
     if (paymentStatus) where.paymentStatus = paymentStatus;
     const orders = await prisma.order.findMany({
@@ -96,6 +96,33 @@ router.get("/", optionalAuth, async (req: AuthRequest, res, next) => {
   } catch (error) {
     console.error("Get client orders error:", error);
     res.status(500).json({ error: "获取订单列表失败" });
+  }
+});
+
+// 用户删除订单（软删除，仅标记 deletedByUser）
+router.patch("/:id/delete", optionalAuth, async (req: AuthRequest, res, next) => {
+  if (req.adminId) return next('route');
+  if (!req.userId) return res.status(401).json({ error: "请先登录" });
+
+  try {
+    const { id } = req.params;
+    const order = await prisma.order.findFirst({
+      where: { id, userId: req.userId },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: "订单不存在" });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { deletedByUser: true },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Delete order error:", error);
+    res.status(500).json({ error: "删除订单失败" });
   }
 });
 
@@ -191,6 +218,9 @@ router.post("/:id/confirm", authMiddleware, async (req, res) => {
     const { success } = req.body;
     const order = await prisma.order.update({ where: { id: req.params.id }, data: { paymentStatus: success ? "paid" : "failed", status: success ? "paid" : "cancelled" }, include: { items: true } });
     io.emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
+    io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus, total: order.total, items: order.items, createdAt: order.createdAt });
+    io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
+    io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
     res.json(order);
   } catch (error) {
     console.error("Confirm payment error:", error);
@@ -228,6 +258,10 @@ router.get("/:id", optionalAuth, async (req: AuthRequest, res) => {
     }
     if (req.userId && order.userId !== req.userId) {
       return res.status(403).json({ error: "无权查看此订单" });
+    }
+    // 用户端已删除的订单对用户返回404
+    if (req.userId && order.deletedByUser) {
+      return res.status(404).json({ error: "订单不存在" });
     }
     res.json(order);
   } catch (error) {

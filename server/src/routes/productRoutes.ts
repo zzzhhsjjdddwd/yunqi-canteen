@@ -4,21 +4,28 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
-// 获取全部商品 (公开)
+// 获取全部商品 (公开) - 转换为客户端需要的格式
 router.get('/', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       include: { category: true },
       orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
     });
-    res.json(products);
+    // 转换客户端需要的字段：isAvailable, isRecommended
+    const formattedProducts = products.map(p => ({
+      ...p,
+      isAvailable: p.status === 'active',
+      isRecommended: (p as any).isRecommended ?? false, // 默认不推荐
+      price: Math.round(p.price),
+    }));
+    res.json(formattedProducts);
   } catch (error) {
     console.error('Get products error:', error);
     res.status(500).json({ error: '获取商品失败' });
   }
 });
 
-// 获取单个商品 (公开)
+// 获取单个商品 (公开) - 转换为客户端需要的格式
 router.get('/:id', async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
@@ -28,7 +35,14 @@ router.get('/:id', async (req, res) => {
     if (!product) {
       return res.status(404).json({ error: '商品不存在' });
     }
-    res.json(product);
+    // 转换客户端需要的字段
+    const formattedProduct = {
+      ...product,
+      isAvailable: product.status === 'active',
+      isRecommended: (product as any).isRecommended ?? false,
+      price: Math.round(product.price),
+    };
+    res.json(formattedProduct);
   } catch (error) {
     console.error('Get product error:', error);
     res.status(500).json({ error: '获取商品失败' });

@@ -18,6 +18,8 @@ export interface Product {
   category?: Category;
   sortOrder: number;
   status: 'active' | 'inactive';
+  isAvailable: boolean;
+  isRecommended: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +79,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  deletedByUser?: boolean;
   createdAt: string;
   updatedAt: string;
   remark?: string;
@@ -115,10 +118,12 @@ export interface Address {
 export interface AuthResponse {
   token: string;
   user: User;
+  isNewUser?: boolean;
 }
 
 export interface PaymentConfirmData {
   orderId: string;
+  orderNo: string;
   status: 'success' | 'failed';
 }
 
