@@ -7,6 +7,9 @@ declare global {
       phone?: string;
       adminId?: string;
       adminUsername?: string;
+      params: {
+        [key: string]: string;
+      };
     }
   }
 }
