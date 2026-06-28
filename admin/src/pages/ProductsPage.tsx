@@ -308,7 +308,7 @@ function ProductForm({
   const [form, setForm] = useState({
     name: product?.name || '',
     categoryId: product?.categoryId || categories[0]?.id || '',
-    price: product?.price?.toString() || '',
+    price: product?.price ? (product.price / 100).toFixed(2) : '',
     description: product?.description || '',
     image: product?.image || '',
     status: product?.status || 'active',

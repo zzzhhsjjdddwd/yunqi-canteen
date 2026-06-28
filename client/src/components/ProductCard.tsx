@@ -1,95 +1,175 @@
 import { useState } from 'react';
-import { Plus, Check, UtensilsCrossed } from 'lucide-react';
+import { Plus, Minus, Star, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
 import { formatPrice } from '../lib/utils';
 import type { Product } from '../../../shared/types';
 
 interface ProductCardProps {
   product: Product;
+  compact?: boolean;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCartStore();
-  const [added, setAdded] = useState(false);
+export default function ProductCard({ product, compact = false }: ProductCardProps) {
+  const { items, addItem, removeItem, updateQuantity } = useCartStore();
   const [imageError, setImageError] = useState(false);
-  const isSoldOut = product.status === 'inactive';
-  const hasImage = product.image && !imageError;
+
+  const cartItem = items.find((item) => item.product.id === product.id);
+  const quantity = cartItem?.quantity || 0;
 
   const handleAdd = () => {
+    if (!product.isAvailable) return;
     addItem(product);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 800);
   };
 
+  const handleRemove = () => {
+    if (quantity <= 1) {
+      removeItem(product.id);
+    } else {
+      updateQuantity(product.id, quantity - 1);
+    }
+  };
+
+  if (compact) {
+    return (
+      <div className="glass-card product-card-hover overflow-hidden group cursor-pointer">
+        {/* 图片区域 */}
+        <div className="relative aspect-square overflow-hidden">
+          {product.image && !imageError ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImageError(true)}
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
+              <ShoppingBag className="h-8 w-8 text-primary/40" />
+            </div>
+          )}
+
+          {/* 推荐标签 */}
+          {product.isRecommended && (
+            <div className="absolute top-2 left-2 flex items-center gap-1 bg-gradient-to-r from-accent to-accent-light text-white text-xs px-2 py-0.5 rounded-full shadow-md">
+              <Star className="h-3 w-3" />
+              <span>推荐</span>
+            </div>
+          )}
+
+          {/* 售罄遮罩 */}
+          {!product.isAvailable && (
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+              <span className="text-white font-medium text-sm bg-black/50 px-3 py-1 rounded-full">
+                已售罄
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 内容区域 */}
+        <div className="p-3">
+          <h3 className="font-medium text-sm truncate">{product.name}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{product.description}</p>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-sm font-bold gradient-text">{formatPrice(product.price)}</span>
+            {quantity > 0 ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRemove(); }}
+                  className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="text-sm font-medium w-5 text-center">{quantity}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary-dark transition-colors shadow-md"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+                disabled={!product.isAvailable}
+                className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary-dark transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`group glass-card product-card-hover overflow-hidden ${
-        isSoldOut ? 'opacity-60 grayscale' : ''
-      }`}
-    >
+    <div className="glass-card product-card-hover overflow-hidden group">
       {/* 图片区域 */}
-      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/10 to-accent/10">
-        {hasImage ? (
+      <div className="relative aspect-[4/3] overflow-hidden">
+        {product.image && !imageError ? (
           <img
             src={product.image}
             alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImageError(true)}
-            className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 ${
-              isSoldOut ? 'grayscale' : ''
-            }`}
+            loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <div className="flex flex-col items-center gap-2 text-primary/50">
-              <UtensilsCrossed className="h-10 w-10" />
-              <span className="text-xs font-medium">{product.name}</span>
-            </div>
+          <div className="w-full h-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
+            <ShoppingBag className="h-10 w-10 text-primary/40" />
           </div>
         )}
-        
-        {/* 渐变遮罩 */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        
-        {/* 售罄标签 */}
-        {isSoldOut && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
-            <span className="rounded-full bg-black/70 px-5 py-2 text-sm font-semibold text-white backdrop-blur-sm">
+
+        {/* 推荐标签 */}
+        {product.isRecommended && (
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-gradient-to-r from-accent to-accent-light text-white text-xs px-2.5 py-1 rounded-full shadow-md">
+            <Star className="h-3 w-3" />
+            <span>店长推荐</span>
+          </div>
+        )}
+
+        {/* 售罄遮罩 */}
+        {!product.isAvailable && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+            <span className="text-white font-medium bg-black/50 px-4 py-1.5 rounded-full">
               已售罄
             </span>
           </div>
         )}
-
-        {/* 价格标签 - 无图片时显示在占位区域 */}
-        {!isSoldOut && !hasImage && (
-          <div className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 backdrop-blur-sm shadow-lg">
-            <span className="text-sm font-bold text-primary">{formatPrice(product.price)}</span>
-          </div>
-        )}
       </div>
 
-      {/* 信息区域 */}
-      <div className="p-3">
-        <h3 className="font-semibold text-foreground line-clamp-1">{product.name}</h3>
-        {product.description && (
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{product.description}</p>
-        )}
-        
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-base font-bold gradient-text">{formatPrice(product.price)}</span>
-          {!isSoldOut && (
+      {/* 内容区域 */}
+      <div className="p-4">
+        <h3 className="font-semibold text-base truncate">{product.name}</h3>
+        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+
+        <div className="flex items-center justify-between mt-3">
+          <span className="text-lg font-bold gradient-text">{formatPrice(product.price)}</span>
+
+          {quantity > 0 ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRemove}
+                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-medium w-6 text-center">{quantity}</span>
+              <button
+                onClick={handleAdd}
+                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary-dark transition-colors shadow-md"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
             <button
               onClick={handleAdd}
-              className={`group/btn relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-white shadow-lg transition-all hover:scale-110 active:scale-95 ${
-                added 
-                  ? 'bg-gradient-to-br from-success to-success/80 shadow-success/40' 
-                  : 'bg-gradient-to-br from-primary to-primary-light shadow-primary/40 hover:shadow-xl hover:shadow-primary/50'
-              }`}
+              disabled={!product.isAvailable}
+              className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary-dark transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {added ? (
-                <Check className="h-4 w-4 animate-bounce" />
-              ) : (
-                <Plus className="h-4 w-4 transition-transform group-hover/btn:rotate-90" />
-              )}
+              <Plus className="h-5 w-5" />
             </button>
           )}
         </div>

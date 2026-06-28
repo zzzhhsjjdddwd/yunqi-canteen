@@ -87,6 +87,11 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
                   src={qrUrl}
                   alt="收款二维码"
                   className="h-56 w-56 rounded-xl"
+                  style={{ 
+                    WebkitTouchCallout: 'default',
+                    touchAction: 'manipulation',
+                  }}
+                  draggable={false}
                 />
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-4 py-2 backdrop-blur-sm shadow-lg">
                   <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -116,12 +121,13 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
               <div className="flex gap-3 w-full">
                 <Button onClick={() => {
                   onClose();
-                  navigate('/');
+                  navigate('/menu');
                 }} variant="outline" className="flex-1 rounded-full bg-white/60 backdrop-blur-sm">
                   返回首页
                 </Button>
                 <Button onClick={() => {
                   onClose();
+                  navigate(`/menu/orders/${orderId}`);
                 }} className="flex-1 glass-button">
                   <Sparkles className="h-4 w-4 mr-2" />
                   查看订单

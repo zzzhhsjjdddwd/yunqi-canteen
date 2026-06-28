@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Sparkles, Loader2 } from 'lucide-react';
+import { Lock, Cloud, Leaf, Mountain, Loader2 } from 'lucide-react';
 import { login } from '../lib/api';
 import { useAdminStore } from '../stores/adminStore';
 import { Input } from '../components/ui/Input';
@@ -31,26 +31,39 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      {/* 背景装饰 */}
-      <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute top-1/3 -left-20 h-60 w-60 rounded-full bg-accent/15 blur-3xl" />
-        <div className="absolute bottom-20 right-10 h-40 w-40 rounded-full bg-primary-light/20 blur-2xl" />
+    <div className="flex min-h-screen items-center justify-center p-4 relative overflow-hidden">
+      {/* 动态背景装饰 */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+        <div className="bg-blob-1 -top-40 -right-40" />
+        <div className="bg-blob-2 top-1/3 -left-20" />
+        <div className="bg-blob-3 bottom-20 right-10" />
       </div>
 
-      <div className="glass-card w-full max-w-md p-8">
+      <div className="glass-card w-full max-w-md p-8 shimmer-sweep">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-light shadow-xl shadow-primary/40">
-            <Sparkles className="h-8 w-8 text-white" />
+          {/* Logo · 青金浮雕徽章 */}
+          <div className="relative mx-auto w-20 h-20 mb-4">
+            <div className="absolute inset-0 rounded-full gold-border breathe-glow" />
+            <div className="relative w-full h-full rounded-full bg-gradient-to-br from-primary/20 via-background-warm to-accent/20 backdrop-blur-sm flex items-center justify-center border border-white/60 shadow-inner">
+              <div className="absolute inset-2 rounded-full border border-primary/20" />
+              <div className="flex flex-col items-center gap-0.5">
+                <Cloud className="w-6 h-6 text-primary" strokeWidth={1.5} />
+                <div className="flex items-center gap-px">
+                  <Mountain className="w-3.5 h-3.5 text-primary/70" strokeWidth={1.5} />
+                  <Leaf className="w-3.5 h-3.5 text-accent" strokeWidth={1.5} />
+                </div>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold gradient-text">商家登录</h1>
-          <p className="mt-2 text-sm text-muted-foreground">请输入您的账号信息</p>
+
+          <h1 className="text-2xl font-bold gradient-text-gold tracking-wide">商家登录</h1>
+          <p className="mt-2 text-sm text-muted-foreground">云栖浅食 · 智能点餐管理系统</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="glass-card rounded-xl bg-destructive/10 border-destructive/30 p-4 text-sm text-destructive flex items-center gap-2">
+            <div className="glass-card rounded-xl bg-destructive/10 border-destructive/20 p-4 text-sm text-destructive flex items-center gap-2">
               <Lock className="h-4 w-4" />
               {error}
             </div>

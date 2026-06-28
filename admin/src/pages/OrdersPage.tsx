@@ -42,19 +42,23 @@ export default function OrdersPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { speakNewOrder, speakPaymentFailed, speakerEnabled } = useSpeaker();
+  const { speakerEnabled, notifyNewOrder, notifyCancelled, notifyPaymentFailed } = useSpeaker();
 
-  // Use refs to store speak functions to avoid dependency instability
-  const speakNewOrderRef = useRef(speakNewOrder);
-  const speakPaymentFailedRef = useRef(speakPaymentFailed);
-
-  useEffect(() => {
-    speakNewOrderRef.current = speakNewOrder;
-  }, [speakNewOrder]);
+  const notifyNewOrderRef = useRef(notifyNewOrder);
+  const notifyCancelledRef = useRef(notifyCancelled);
+  const notifyPaymentFailedRef = useRef(notifyPaymentFailed);
 
   useEffect(() => {
-    speakPaymentFailedRef.current = speakPaymentFailed;
-  }, [speakPaymentFailed]);
+    notifyNewOrderRef.current = notifyNewOrder;
+  }, [notifyNewOrder]);
+
+  useEffect(() => {
+    notifyCancelledRef.current = notifyCancelled;
+  }, [notifyCancelled]);
+
+  useEffect(() => {
+    notifyPaymentFailedRef.current = notifyPaymentFailed;
+  }, [notifyPaymentFailed]);
 
   // Fetch orders
   useEffect(() => {
@@ -95,7 +99,8 @@ export default function OrdersPage() {
     };
     setOrders((prev) => [newOrder, ...prev]);
     if (speakerEnabled) {
-      speakNewOrderRef.current();
+      const itemCount = data.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+      notifyNewOrderRef.current(data.orderNo, data.total, itemCount);
     }
   }, [speakerEnabled]);
 
@@ -117,7 +122,10 @@ export default function OrdersPage() {
           : o
       )
     );
-  }, []);
+    if (speakerEnabled) {
+      notifyCancelledRef.current(data.orderNo);
+    }
+  }, [speakerEnabled]);
 
   useEffect(() => {
     const unsubNew = onNewOrder(handleAddOrder);
@@ -187,19 +195,24 @@ export default function OrdersPage() {
   const handleConfirmPayment = async (orderId: string, success: boolean) => {
     try {
       await confirmPayment(orderId, success);
+      let orderNo = '';
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? ({
-                ...o,
-                paymentStatus: success ? 'paid' : 'failed',
-                status: success ? 'paid' : 'cancelled',
-                updatedAt: new Date().toISOString(),
-              } as Order)
-            : o
-        )
+        prev.map((o) => {
+          if (o.id === orderId) {
+            orderNo = o.orderNo;
+            return {
+              ...o,
+              paymentStatus: success ? 'paid' : 'failed',
+              status: success ? 'paid' : 'cancelled',
+              updatedAt: new Date().toISOString(),
+            } as Order;
+          }
+          return o;
+        })
       );
-      if (!success && speakerEnabled) speakPaymentFailedRef.current();
+      if (!success && speakerEnabled && orderNo) {
+        notifyPaymentFailedRef.current(orderNo);
+      }
       setDialogOpen(false);
     } catch (error) {
       console.error('Failed to confirm payment:', error);
@@ -422,6 +435,12 @@ export default function OrdersPage() {
 
               <div className="glass-card p-4 text-sm text-muted-foreground">
                 <p>下单时间: {formatFullDate(selectedOrder.createdAt)}</p>
+                {selectedOrder.deletedByUser && (
+                  <p className="mt-2 text-red-500 flex items-center gap-1">
+                    <Trash2 className="h-4 w-4" />
+                    <span className="font-medium">此订单已被用户删除</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 pt-1">
@@ -527,6 +546,11 @@ function OrderCard({
           <div className="flex items-center gap-2 mb-1">
             <span className="font-medium">{order.orderNo}</span>
             {getStatusBadge(order)}
+            {order.deletedByUser && (
+              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs border border-gray-200">
+                用户已删除
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground truncate">{productText}</p>
           {(order.user || order.address) && (

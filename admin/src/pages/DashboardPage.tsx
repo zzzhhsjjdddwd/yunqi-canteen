@@ -1,208 +1,292 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, Volume2, VolumeX, ShoppingBag, TrendingUp, Package } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Switch } from '../components/ui/Switch';
-import { EmptyState, DashboardPageSkeleton } from '../components/Loading';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  ShoppingCart,
+  Package,
+  Users,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  ChefHat,
+  ArrowRight,
+} from 'lucide-react';
 import { getStats, getOrders } from '../lib/api';
-import { onNewOrder } from '../lib/socket';
-import { useSpeaker } from '../hooks/useSpeaker';
-import { formatPrice, formatDate } from '../lib/utils';
-import type { StatsData, Order } from '../../../shared/types';
+import type { Order } from '../../../shared/types';
+import { formatPrice } from '../lib/utils';
+
+interface DashboardStats {
+  totalOrders: number;
+  todayOrders: number;
+  todayRevenue: number;
+  pendingOrders: number;
+  totalProducts: number;
+  totalUsers: number;
+  preparingOrders?: number;
+  readyOrders?: number;
+  completedOrders?: number;
+  cancelledOrders?: number;
+}
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const { speakNewOrder, speakerEnabled, setSpeakerEnabled } = useSpeaker();
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [statsData, ordersData] = await Promise.all([
-          getStats(),
-          getOrders(),
-        ]);
-        setStats(statsData);
-        setRecentOrders(ordersData.slice(0, 10));
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
+    loadDashboardData();
+    const interval = setInterval(loadDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onNewOrder((data) => {
-      const newOrder: Order = {
-        id: data.orderId,
-        orderNo: data.orderNo,
-        items: data.items,
-        total: data.total,
-        status: 'pending',
-        paymentStatus: 'unpaid',
-        remark: data.remark,
-        createdAt: data.createdAt,
-        updatedAt: data.createdAt,
-      };
-      setRecentOrders((prev) => [newOrder, ...prev.slice(0, 9)]);
-      setStats((prev) =>
-        prev ? { ...prev, todayOrders: prev.todayOrders + 1, pendingOrders: prev.pendingOrders + 1 } : prev
-      );
-
-      if (speakerEnabled) {
-        speakNewOrder();
-      }
-    });
-
-    return () => unsubscribe();
-  }, [speakerEnabled, speakNewOrder]);
-
-  if (loading) {
-    return <DashboardPageSkeleton />;
-  }
-
-  const getStatusBadge = (status: string, paymentStatus: string) => {
-    if (paymentStatus === 'unpaid' && status === 'pending') {
-      return <span className="status-badge status-badge-pending">待支付</span>;
+  const loadDashboardData = async () => {
+    try {
+      const [statsData, ordersData] = await Promise.all([
+        getStats(),
+        getOrders({ limit: 5 }),
+      ]);
+      setStats(statsData);
+      setRecentOrders(ordersData);
+      setError('');
+    } catch (err) {
+      setError('加载数据失败，请刷新重试');
+    } finally {
+      setLoading(false);
     }
-    const configs: Record<string, { class: string; label: string }> = {
-      paid: { class: 'status-badge-ready', label: '已支付' },
-      preparing: { class: 'status-badge-preparing', label: '制作中' },
-      completed: { class: 'status-badge-completed', label: '已完成' },
-      cancelled: { class: 'status-badge-cancelled', label: '已取消' },
-    };
-    const config = configs[status] || { class: 'status-badge-pending', label: status };
-    return <span className={`status-badge ${config.class}`}>{config.label}</span>;
   };
 
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center space-y-4">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <p className="text-muted-foreground">{error}</p>
+          <button
+            onClick={loadDashboardData}
+            className="glass-button px-6 py-2 text-sm"
+          >
+            重新加载
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats) return null;
+
+  const statCards = [
+    {
+      title: '今日订单',
+      value: stats.todayOrders,
+      icon: ShoppingCart,
+      trend: stats.todayOrders > 0 ? '↑' : '0',
+      trendUp: stats.todayOrders > 0,
+      color: 'primary',
+      path: '/orders',
+    },
+    {
+      title: '今日营收',
+      value: formatPrice(stats.todayRevenue),
+      icon: DollarSign,
+      trend: stats.todayRevenue > 0 ? '↑' : '0',
+      trendUp: stats.todayRevenue > 0,
+      color: 'accent',
+      path: '/orders',
+    },
+    {
+      title: '商品总数',
+      value: stats.totalProducts,
+      icon: Package,
+      trend: '在售',
+      trendUp: true,
+      color: 'success',
+      path: '/products',
+    },
+    {
+      title: '用户总数',
+      value: stats.totalUsers,
+      icon: Users,
+      trend: '活跃',
+      trendUp: true,
+      color: 'info',
+      path: '/users',
+    },
+  ];
+
+  const orderStatusCards = [
+    { label: '待处理', value: stats.pendingOrders, icon: Clock, color: 'text-warning bg-warning/10 border-warning/20' },
+    { label: '制作中', value: stats.preparingOrders || 0, icon: ChefHat, color: 'text-info bg-info/10 border-info/20' },
+    { label: '待取餐', value: stats.readyOrders || 0, icon: AlertCircle, color: 'text-primary bg-primary/10 border-primary/20' },
+    { label: '已完成', value: stats.completedOrders || 0, icon: CheckCircle, color: 'text-success bg-success/10 border-success/20' },
+    { label: '已取消', value: stats.cancelledOrders || 0, icon: TrendingDown, color: 'text-destructive bg-destructive/10 border-destructive/20' },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between stagger-fade-in" style={{ animationDelay: '0ms' }}>
-        <div>
-          <h1 className="text-2xl font-bold gradient-text">仪表盘</h1>
-          <p className="text-sm text-muted-foreground mt-1">实时查看店铺运营数据</p>
-        </div>
-        <div className="glass-card flex items-center gap-3 px-4 py-2">
-          {speakerEnabled ? (
-            <Volume2 className="h-5 w-5 text-primary" />
-          ) : (
-            <VolumeX className="h-5 w-5 text-muted-foreground" />
-          )}
-          <Switch checked={speakerEnabled} onCheckedChange={setSpeakerEnabled} />
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="stat-card p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 stagger-fade-in" style={{ animationDelay: '60ms' }}>
-          <div className="flex items-center gap-4">
-            <div className="icon-container icon-container-primary h-14 w-14">
-              <ShoppingBag className="h-7 w-7 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">今日订单</p>
-              <p className="text-3xl font-bold gradient-text">{stats?.todayOrders || 0}</p>
-            </div>
+    <div className="space-y-8 page-fade-in">
+      {/* 欢迎区域 */}
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold gradient-text-gold">商家控制台</h1>
+            <p className="text-muted-foreground mt-1">实时监控店铺运营数据</p>
           </div>
-        </div>
-
-        <div className="stat-card p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 stagger-fade-in" style={{ animationDelay: '120ms' }}>
-          <div className="flex items-center gap-4">
-            <div className="icon-container icon-container-success h-14 w-14">
-              <TrendingUp className="h-7 w-7 text-success" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">今日营业额</p>
-              <p className="text-3xl font-bold gradient-text">{formatPrice(stats?.todayRevenue || 0)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 stagger-fade-in" style={{ animationDelay: '180ms' }}>
-          <div className="flex items-center gap-4">
-            <div className="icon-container icon-container-warning h-14 w-14">
-              <Clock className="h-7 w-7 text-warning" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">待处理</p>
-              <p className="text-3xl font-bold gradient-text">{stats?.pendingOrders || 0}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 stagger-fade-in" style={{ animationDelay: '240ms' }}>
-          <div className="flex items-center gap-4">
-            <div className="icon-container icon-container-accent h-14 w-14">
-              <Package className="h-7 w-7 text-accent" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">总订单数</p>
-              <p className="text-3xl font-bold gradient-text">{stats?.totalOrders || 0}</p>
-            </div>
+          <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>数据实时更新</span>
           </div>
         </div>
       </div>
 
-      {/* Recent Orders */}
-      <div className="glass-card overflow-hidden stagger-fade-in" style={{ animationDelay: '300ms' }}>
-        <div className="flex flex-row items-center justify-between border-b border-white/30 px-5 py-4">
-          <h2 className="font-semibold flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-primary" />
-            实时订单
-          </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/orders')}
-            className="rounded-full bg-white/60 backdrop-blur-sm hover:bg-white/80 active:scale-95 transition-transform"
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((card, index) => (
+          <Link
+            key={card.title}
+            to={card.path}
+            className="stat-card p-5 group cursor-pointer"
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <div className="flex items-start justify-between">
+              <div className={`icon-container icon-container-${card.color} w-11 h-11 rounded-xl`}>
+                <card.icon className="h-5 w-5" />
+              </div>
+              <div className={`flex items-center gap-1 text-xs font-medium ${card.trendUp ? 'text-success' : 'text-destructive'}`}>
+                {card.trendUp ? (
+                  <TrendingUp className="h-3 w-3" />
+                ) : (
+                  <TrendingDown className="h-3 w-3" />
+                )}
+                <span>{card.trend}</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-2xl font-bold gradient-text">{card.value}</p>
+              <p className="text-sm text-muted-foreground mt-1">{card.title}</p>
+            </div>
+            <div className="mt-3 flex items-center gap-1 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+              <span>查看详情</span>
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* 订单状态概览 */}
+      <div className="glass-card p-6">
+        <h2 className="text-lg font-semibold gradient-text mb-4">订单状态概览</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {orderStatusCards.map((status) => (
+            <div
+              key={status.label}
+              className="flex items-center gap-3 p-4 rounded-xl bg-white/50 backdrop-blur-sm border border-white/60 hover:bg-white/70 transition-colors"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${status.color}`}>
+                <status.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{status.value}</p>
+                <p className="text-xs text-muted-foreground">{status.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 最近订单 */}
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold gradient-text">最近订单</h2>
+          <Link
+            to="/orders"
+            className="text-sm text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
           >
             查看全部
-          </Button>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
-        <div className="p-5">
-          {recentOrders.length === 0 ? (
-            <EmptyState
-              icon={ShoppingBag}
-              title="暂无订单"
-              description="等待新订单到来"
-            />
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.map((order, i) => (
-                <div
-                  key={order.id}
-                  className="order-card flex items-center justify-between p-4 stagger-fade-in"
-                  style={{ animationDelay: `${i * 30}ms` }}
-                  onClick={() => navigate('/orders')}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{order.orderNo}</span>
-                      {getStatusBadge(order.status, order.paymentStatus)}
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground truncate">
-                      {order.items.map((i) => i.productName).join(', ')}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+
+        {recentOrders.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p>暂无订单</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentOrders.map((order) => (
+              <Link
+                key={order.id}
+                to={`/orders?orderId=${order.id}`}
+                className="order-card p-4 flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="font-bold text-lg gradient-text">{formatPrice(order.total)}</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-transform"
-                    >
-                      处理
-                    </Button>
+                  <div>
+                    <p className="font-medium">{order.orderNo}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {order.user?.nickname || order.user?.phone || '未知用户'}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="text-right">
+                  <p className="font-bold gradient-text">{formatPrice(order.total)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="glass-card p-6">
+        <div className="h-8 w-48 shimmer rounded-lg" />
+        <div className="h-4 w-32 shimmer rounded-lg mt-2" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="stat-card p-5">
+            <div className="h-11 w-11 shimmer rounded-xl" />
+            <div className="h-8 w-20 shimmer rounded-lg mt-4" />
+            <div className="h-4 w-24 shimmer rounded-lg mt-2" />
+          </div>
+        ))}
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="h-6 w-32 shimmer rounded-lg mb-4" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-20 shimmer rounded-xl" />
+          ))}
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="h-6 w-32 shimmer rounded-lg mb-4" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-16 shimmer rounded-xl" />
+          ))}
         </div>
       </div>
     </div>

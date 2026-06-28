@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { prisma } from '../app.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { getFullUrl } from '../utils/url.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
@@ -50,7 +51,7 @@ router.post('/register', async (req, res) => {
         id: user.id,
         phone: user.phone,
         nickname: user.nickname,
-        avatar: user.avatar,
+        avatar: getFullUrl(req, user.avatar),
       },
     });
   } catch (error) {
@@ -96,7 +97,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         phone: user.phone,
         nickname: user.nickname,
-        avatar: user.avatar,
+        avatar: getFullUrl(req, user.avatar),
       },
     });
   } catch (error) {
@@ -142,7 +143,7 @@ router.post('/auth', async (req, res) => {
           id: existingUser.id,
           phone: existingUser.phone,
           nickname: existingUser.nickname,
-          avatar: existingUser.avatar,
+          avatar: getFullUrl(req, existingUser.avatar),
         },
         isNewUser: false,
       });
@@ -170,7 +171,7 @@ router.post('/auth', async (req, res) => {
           id: user.id,
           phone: user.phone,
           nickname: user.nickname,
-          avatar: user.avatar,
+          avatar: getFullUrl(req, user.avatar),
         },
         isNewUser: true,
       });
@@ -207,7 +208,10 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    res.json(user);
+    res.json({
+      ...user,
+      avatar: getFullUrl(req, user.avatar),
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(401).json({ error: 'token无效' });
@@ -241,7 +245,10 @@ router.patch('/profile', async (req, res) => {
       },
     });
 
-    res.json(user);
+    res.json({
+      ...user,
+      avatar: getFullUrl(req, user.avatar),
+    });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: '更新失败' });

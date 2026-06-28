@@ -40,10 +40,22 @@ Thumbs.db
 .tmp/
 coverage/
 
-# Test artifacts
-test_*.png
-test_*.js
-test_*.txt
-admin-*.png
-client-*.png
-!test_*.config.js
+# Uploaded files (runtime data)
+server/uploads/
+**/uploads/
+
+# Database (runtime data)
+server/src/prisma/dev.db
+server/src/prisma/*.db
+server/src/prisma/*.db-journal
+
+# Temp directories
+temp/
+**/temp/
+
+# Root-level screenshots / demo images
+/admin_step*.png
+/client_test.png
+/test_*.png
+/test_*.js
+/test_*.txt

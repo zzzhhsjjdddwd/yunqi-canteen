@@ -1,8 +1,18 @@
 import type { Category, Product, Order, CreateOrderRequest, User, Address, AuthResponse } from '../../../shared/types';
 import { useAuthStore } from '../stores/authStore';
 
-// API请求基础路径 - 开发环境通过Vite代理，生产环境使用Railway后端
-const API_BASE = 'https://yunqi-canteen-production.up.railway.app';
+const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-canteen-production.up.railway.app';
+
+export function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('/')) {
+    return API_BASE + url;
+  }
+  return url;
+}
 
 function getHeaders(): HeadersInit {
   const token = useAuthStore.getState().token;
@@ -30,6 +40,33 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Auth
+export async function authLoginRegister(phone: string, password: string, nickname?: string): Promise<AuthResponse> {
+  try {
+    return await request<AuthResponse>('/api/auth/auth', {
+      method: 'POST',
+      body: JSON.stringify({ phone, password, nickname }),
+    });
+  } catch (e: any) {
+    if (e.message?.includes('404') || e.status === 404) {
+      try {
+        return await request<AuthResponse>('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ phone, password }),
+        });
+      } catch (loginError: any) {
+        if (loginError.message?.includes('404') || loginError.status === 404) {
+          return await request<AuthResponse>('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ phone, password, nickname }),
+          });
+        }
+        throw loginError;
+      }
+    }
+    throw e;
+  }
+}
+
 export async function register(phone: string, password: string, nickname?: string): Promise<AuthResponse> {
   return request<AuthResponse>('/api/auth/register', {
     method: 'POST',
@@ -91,13 +128,24 @@ export async function getCategories(): Promise<Category[]> {
   return request<Category[]>('/api/categories');
 }
 
+function normalizeProduct(p: any): Product {
+  return {
+    ...p,
+    image: resolveImageUrl(p.image),
+    isAvailable: p.isAvailable !== undefined ? p.isAvailable : p.status === 'active',
+    isRecommended: p.isRecommended || false,
+  };
+}
+
 // Products
 export async function getProducts(): Promise<Product[]> {
-  return request<Product[]>('/api/products');
+  const products = await request<any[]>('/api/products');
+  return products.map(normalizeProduct);
 }
 
 export async function getProduct(id: string): Promise<Product> {
-  return request<Product>(`/api/products/${id}`);
+  const product = await request<any>(`/api/products/${id}`);
+  return normalizeProduct(product);
 }
 
 // Orders
@@ -123,9 +171,19 @@ export async function cancelOrder(id: string): Promise<Order> {
   });
 }
 
+export async function deleteOrder(id: string): Promise<Order> {
+  return request<Order>(`/api/orders/${id}/delete`, {
+    method: 'PATCH',
+  });
+}
+
 // Settings
 export async function getPaymentQR(): Promise<{ paymentQR: string | null }> {
-  return request<{ paymentQR: string | null }>('/api/settings/payment-qr');
+  const result = await request<{ paymentQR: string | null }>('/api/settings/payment-qr');
+  return {
+    ...result,
+    paymentQR: resolveImageUrl(result.paymentQR),
+  };
 }
 
 export async function getSetting<T>(key: string): Promise<T> {

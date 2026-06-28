@@ -3,8 +3,8 @@ import type { NewOrderData, OrderStatusUpdateData, PaymentConfirmData } from '..
 
 let socket: Socket | null = null;
 
-// In production: Use VITE_API_URL for direct WebSocket connection
-const SERVER_URL = import.meta.env.VITE_API_URL || '';
+// In production: Use Railway backend for direct WebSocket connection
+const SERVER_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'https://yunqi-canteen-production.up.railway.app');
 
 export function getSocket(): Socket {
   if (!socket) {

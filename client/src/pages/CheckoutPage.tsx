@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, CreditCard, MessageSquare, MapPin, Plus } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, CreditCard, MessageSquare, MapPin, Plus, AlertCircle } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
 import { useOrderStore } from '../stores/orderStore';
 import { useAuthStore } from '../stores/authStore';
@@ -8,7 +8,13 @@ import { useAddressStore } from '../stores/addressStore';
 import { createOrder, getAddresses } from '../lib/api';
 import { formatPrice } from '../lib/utils';
 import { Button } from '../components/ui/Button';
-import PaymentModal from '../components/PaymentModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../components/ui/Dialog';
 import type { Address } from '../../../shared/types';
 
 export default function CheckoutPage() {
@@ -25,8 +31,7 @@ export default function CheckoutPage() {
   const setSelectedAddress = useAddressStore((state) => state.setSelectedAddress);
   const [remark, setRemark] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
-  const [createdOrder, setCreatedOrder] = useState<{ id: string; orderNo: string } | null>(null);
+  const [showAddressTip, setShowAddressTip] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -48,36 +53,16 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-        <div className="glass-card flex flex-col items-center justify-center p-8 w-full max-w-sm">
-          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-muted/50">
-            <ShoppingBag className="h-10 w-10 text-muted-foreground opacity-60" />
-          </div>
-          <p className="text-lg font-medium text-muted-foreground">购物车是空的</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">快去挑选美食吧</p>
-          <div className="mt-6 flex gap-3 w-full">
-            <Button 
-              onClick={() => navigate('/')} 
-              className="flex-1 glass-button"
-            >
-              去点餐
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => navigate('/orders')}
-              className="flex-1 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white/80"
-            >
-              我的订单
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 获取当前选中的地址
+  const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
 
   const handleCheckout = async () => {
+    // 检查收货地址
+    if (!selectedAddressId || !selectedAddress) {
+      setShowAddressTip(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const orderData = {
@@ -90,14 +75,14 @@ export default function CheckoutPage() {
         total: getTotal(),
         remark: remark || undefined,
         userId: user?.id,
-        addressId: selectedAddressId ?? undefined,
+        addressId: selectedAddressId,
       };
 
       const order = await createOrder(orderData);
-      setCreatedOrder({ id: order.id, orderNo: order.orderNo });
       addOrder(order);
       clearCart();
-      setShowPayment(true);
+      // 提交订单后直接跳转到订单页
+      navigate('/menu/orders');
     } catch (error) {
       console.error('Failed to create order:', error);
       alert('创建订单失败，请重试');
@@ -106,17 +91,32 @@ export default function CheckoutPage() {
     }
   };
 
-  if (showPayment && createdOrder) {
+  if (items.length === 0) {
     return (
-      <PaymentModal
-        open={showPayment}
-        onClose={() => {
-          setShowPayment(false);
-          navigate('/orders');
-        }}
-        orderId={createdOrder.id}
-        orderNo={createdOrder.orderNo}
-      />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+        <div className="glass-card flex flex-col items-center justify-center p-8 w-full max-w-sm">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-muted/50">
+            <ShoppingBag className="h-10 w-10 text-muted-foreground opacity-60" />
+          </div>
+          <p className="text-lg font-medium text-muted-foreground">购物车是空的</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">快去挑选美食吧</p>
+          <div className="mt-6 flex gap-3 w-full">
+            <Button 
+              onClick={() => navigate('/menu')} 
+              className="flex-1 glass-button"
+            >
+              去点餐
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/menu/orders')}
+              className="flex-1 rounded-full bg-white/60 backdrop-blur-sm hover:bg-white/80"
+            >
+              我的订单
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -125,7 +125,7 @@ export default function CheckoutPage() {
       {/* 头部 */}
       <header className="mb-6 flex items-center gap-4">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/menu')}
           className="glass-card flex h-11 w-11 items-center justify-center hover:scale-105 active:scale-95"
         >
           <ArrowLeft className="h-5 w-5 text-muted-foreground" />
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
           <div className="p-4">
             {addresses.length === 0 ? (
               <button
-                onClick={() => navigate('/addresses/new')}
+                onClick={() => navigate('/addresses/new?from=checkout')}
                 className="flex items-center gap-2 text-primary"
               >
                 <Plus className="h-4 w-4" />
@@ -187,7 +187,7 @@ export default function CheckoutPage() {
                   </label>
                 ))}
                 <button
-                  onClick={() => navigate('/addresses/new')}
+                  onClick={() => navigate('/addresses/new?from=checkout')}
                   className="flex items-center gap-2 text-primary text-sm mt-2"
                 >
                   <Plus className="h-4 w-4" />
@@ -264,7 +264,11 @@ export default function CheckoutPage() {
       <button
         onClick={handleCheckout}
         disabled={loading}
-        className="glass-button w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        className={`w-full flex items-center justify-center gap-2 ${
+          selectedAddress
+            ? 'glass-button'
+            : 'bg-gray-300 text-gray-500 cursor-pointer rounded-full py-3 font-medium'
+        }`}
       >
         {loading ? (
           <>
@@ -275,6 +279,41 @@ export default function CheckoutPage() {
           '提交订单'
         )}
       </button>
+
+      {/* 收货地址提示弹窗 */}
+      <Dialog open={showAddressTip} onOpenChange={setShowAddressTip}>
+        <DialogContent className="sm:max-w-md rounded-2xl border-white/50 bg-white/90 backdrop-blur-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <span className="text-lg font-semibold">请选择收货地址</span>
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground pt-2">
+              为了能将商品准确送达，请先添加或选择一个收货地址。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddressTip(false)}
+              className="flex-1 rounded-full bg-white/60 backdrop-blur-sm"
+            >
+              知道了
+            </Button>
+            <Button
+              onClick={() => {
+                setShowAddressTip(false);
+                navigate('/addresses/new?from=checkout');
+              }}
+              className="flex-1 glass-button"
+            >
+              去添加
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

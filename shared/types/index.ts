@@ -145,11 +145,11 @@ export interface NewOrderData {
 }
 
 export interface Settings {
-  autoConfirmPayment: boolean;
-  notifyNewOrders: boolean;
-  speakerVolume: number;
+  notificationEnabled: boolean;
   speakerEnabled: boolean;
+  speakerVolume: number;
   speakerNewOrderText: string;
+  speakerCancelledText: string;
   speakerPaymentFailedText: string;
 }
 

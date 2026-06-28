@@ -50,7 +50,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-purple-50/30 to-blue-50/20">
       <header className="glass-card sticky top-0 z-10 px-4 py-4 stagger-fade-in" style={{ animationDelay: '0ms' }}>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="glass-card p-2 active:scale-95 transition-transform">
+          <button onClick={() => navigate('/menu')} className="glass-card p-2 active:scale-95 transition-transform">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="text-lg font-bold gradient-text">个人中心</h1>

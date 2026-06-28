@@ -19,7 +19,7 @@ export default function CartSheet({ children }: { children: React.ReactNode }) {
 
   const goToMenu = () => {
     // 关闭 sheet 由父级控制，这里只跳转
-    navigate('/');
+    navigate('/menu');
   };
 
   return (

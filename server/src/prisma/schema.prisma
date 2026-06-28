@@ -60,13 +60,15 @@ model OrderItem {
 }
 
 model Settings {
-  id                       String   @id @default("default")
-  paymentQR                String?
-  speakerEnabled           Boolean  @default(true)
-  speakerVolume            Int      @default(80)
-  speakerNewOrderText      String   @default("新订单来了")
-  speakerPaymentFailedText String   @default("客户支付失败")
-  updatedAt                DateTime @updatedAt
+  id                        String   @id @default("default")
+  paymentQR                 String?
+  notificationEnabled       Boolean  @default(true)
+  speakerEnabled            Boolean  @default(true)
+  speakerVolume             Int      @default(80)
+  speakerNewOrderText       String   @default("新订单来了")
+  speakerCancelledText      String   @default("客户取消订单")
+  speakerPaymentFailedText  String   @default("客户支付失败")
+  updatedAt                 DateTime @updatedAt
 }
 
 model Admin {

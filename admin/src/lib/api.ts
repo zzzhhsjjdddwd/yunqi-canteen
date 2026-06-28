@@ -1,8 +1,17 @@
 import type { Category, Product, Order, StatsData, Settings } from '../../../shared/types';
 
-// In development: Vite proxies /api to localhost:3001
-// In production: uses Railway backend
-const API_BASE = import.meta.env.VITE_API_URL || 'https://yunqi-canteen-production.up.railway.app';
+const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-canteen-production.up.railway.app';
+
+export function resolveImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('/')) {
+    return API_BASE + url;
+  }
+  return url;
+}
 
 async function request<T>(path: string, options?: RequestInit, authenticated = false): Promise<T> {
   const token = localStorage.getItem('admin-token');
@@ -113,7 +122,11 @@ export async function deleteOrder(id: string): Promise<void> {
 
 // Settings
 export async function getPaymentQR(): Promise<{ paymentQR: string | null }> {
-  return request<{ paymentQR: string | null }>('/api/settings/payment-qr');
+  const result = await request<{ paymentQR: string | null }>('/api/settings/payment-qr');
+  return {
+    ...result,
+    paymentQR: resolveImageUrl(result.paymentQR),
+  };
 }
 
 export async function uploadPaymentQR(file: File): Promise<{ paymentQR: string }> {
@@ -130,7 +143,11 @@ export async function uploadPaymentQR(file: File): Promise<{ paymentQR: string }
   if (!response.ok) {
     throw new Error('上传失败');
   }
-  return response.json();
+  const result = await response.json();
+  return {
+    ...result,
+    paymentQR: resolveImageUrl(result.paymentQR) || result.paymentQR,
+  };
 }
 
 export async function getSpeakerSettings(): Promise<Settings> {

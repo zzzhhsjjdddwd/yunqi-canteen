@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   const API_URL = env.VITE_API_URL || '';
 
   return {
-    base: mode === 'production' ? '/yunqi-canteen/admin/' : '/',
+    base: mode === 'production' ? '/yunqi-canteen/admin/' : '/admin/',
     plugins: [
       react(),
       VitePWA({
@@ -27,28 +27,28 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           display_override: ['standalone', 'minimal-ui'],
           orientation: 'landscape',
-          scope: '/',
-          start_url: '/',
+          scope: '.',
+          start_url: '.',
           lang: 'zh-CN',
           categories: ['business', 'productivity', 'food'],
           icons: [
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
             },
             {
-              src: '/icons/icon-384.png',
+              src: 'icons/icon-384.png',
               sizes: '384x384',
               type: 'image/png',
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
             },
             {
-              src: '/icons/maskable-512.png',
+              src: 'icons/maskable-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',

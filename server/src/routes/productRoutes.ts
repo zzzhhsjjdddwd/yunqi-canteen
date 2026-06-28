@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { prisma } from '../app.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getFullUrl } from '../utils/url.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.get('/', async (req, res) => {
       isAvailable: p.status === 'active',
       isRecommended: (p as any).isRecommended ?? false, // 默认不推荐
       price: Math.round(p.price),
+      image: getFullUrl(req, p.image),
     }));
     res.json(formattedProducts);
   } catch (error) {
@@ -42,6 +44,7 @@ router.get('/:id', async (req, res) => {
       isAvailable: product.status === 'active',
       isRecommended: (product as any).isRecommended ?? false,
       price: Math.round(product.price),
+      image: getFullUrl(req, product.image),
     };
     res.json(formattedProduct);
   } catch (error) {
