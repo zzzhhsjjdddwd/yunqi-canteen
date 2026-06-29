@@ -4,14 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate --schema=src/prisma/schema.prisma && tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/server.js",
-    "db:push": "prisma db push --schema=src/prisma/schema.prisma",
+    "db:push": "prisma db push",
     "db:seed": "tsx src/prisma/seed.ts",
-    "db:studio": "prisma studio --schema=src/prisma/schema.prisma"
-  },
-  "prisma": {
-    "schema": "src/prisma/schema.prisma"
+    "db:studio": "prisma studio"
   },
   "engines": {
     "node": ">=18.0.0"

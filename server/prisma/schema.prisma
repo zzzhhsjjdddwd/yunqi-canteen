@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  sortOrder Int       @default(0)
+  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id])
+  price       Int
+  description String?
+  image       String?
+  status      String      @default("active")
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNo       String      @unique
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  addressId     String?
+  address       Address?    @relation(fields: [addressId], references: [id])
+  total         Int
+  status        String      @default("pending")
+  paymentStatus String      @default("unpaid")
+  remark        String?
+  deletedByUser Boolean     @default(false)
+  items         OrderItem[]
+  transactions  Transaction[]
+  invoices      Invoice[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  productName String
+  price       Int
+  quantity    Int
+}
+
+model Settings {
+  id                        String   @id @default("default")
+  paymentQR                 String?
+  notificationEnabled       Boolean  @default(true)
+  speakerEnabled            Boolean  @default(true)
+  speakerVolume             Int      @default(80)
+  speakerNewOrderText       String   @default("新订单来了")
+  speakerCancelledText      String   @default("客户取消订单")
+  speakerPaymentFailedText  String   @default("客户支付失败")
+  updatedAt                 DateTime @updatedAt
+}
+
+model Admin {
+  id       String @id @default(cuid())
+  username String @unique
+  password String
+}
+
+model User {
+  id        String    @id @default(cuid())
+  phone     String    @unique
+  password  String
+  nickname  String?
+  avatar    String?
+  addresses Address[]
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String
+  province  String
+  city      String
+  district  String
+  detail    String
+  isDefault Boolean  @default(false)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 财务交易记录
+model Transaction {
+  id            String   @id @default(cuid())
+  type          String   // income:收入 / expense:支出 / transfer:转账
+  category      String   // 分类：销售收入、退款、采购成本、人工成本、运营费用等
+  amount        Int      // 金额，单位：分
+  balanceAfter  Int      // 交易后余额，单位：分
+  orderId       String?  // 关联订单（收入/退款时）
+  order         Order?   @relation(fields: [orderId], references: [id])
+  description   String?  // 描述
+  remark        String?  // 备注
+  operator      String?  // 操作人
+  referenceNo   String?  // 参考号（交易流水号）
+  paymentMethod String?  // 支付方式：wechat/alipay/cash/bank
+  status        String   @default("completed") // completed/pending/failed/cancelled
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([type, createdAt])
+  @@index([category, createdAt])
+  @@index([status, createdAt])
+}
+
+// 财务分类
+model FinanceCategory {
+  id         String   @id @default(cuid())
+  name       String   // 分类名称
+  type       String   // income / expense
+  icon       String?  // 图标
+  color      String?  // 颜色
+  sortOrder  Int      @default(0)
+  isSystem   Boolean  @default(false) // 是否系统内置
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// 账单/发票
+model Invoice {
+  id           String   @id @default(cuid())
+  invoiceNo    String   @unique // 账单编号
+  type         String   // sale:销售账单 / expense:支出账单 / refund:退款账单
+  amount       Int      // 金额，单位：分
+  status       String   @default("unpaid") // unpaid/paid/cancelled/refunded
+  orderId      String?  // 关联订单
+  order        Order?   @relation(fields: [orderId], references: [id])
+  customerName String?  // 客户名称
+  customerPhone String? // 客户电话
+  issuedAt     DateTime? // 开票日期
+  paidAt       DateTime? // 支付日期
+  dueDate      DateTime? // 到期日期
+  items        Json?    // 账单明细
+  remark       String?  // 备注
+  operator     String?  // 操作人
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([type, status, createdAt])
+  @@index([invoiceNo])
+}
