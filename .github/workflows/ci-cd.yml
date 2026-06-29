@@ -116,12 +116,12 @@ jobs:
           test -d admin/src && echo "Admin src OK"
           test -d server/src && echo "Server src OK"
 
-  # 部署后端到 Railway
+  # 部署后端到 Railway (已禁用 - 使用 Render 部署)
   deploy-railway:
     name: 后端 - 部署到 Railway
     runs-on: ubuntu-latest
     needs: [build-server]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false  # 已禁用，使用 Render 部署
     steps:
       - uses: actions/checkout@v4
 
