@@ -102,7 +102,7 @@ router.get('/overview', async (req: Request, res: Response) => {
     // 账户余额
     const balance = await getCurrentBalance();
 
-    // 订单数
+    // 订单数和订单收入（用于客单价计算）
     const todayOrders = await prisma.order.count({
       where: {
         createdAt: { gte: todayStart },
@@ -117,9 +117,17 @@ router.get('/overview', async (req: Request, res: Response) => {
         deletedByUser: false,
       },
     });
+    const monthOrderTotal = await prisma.order.aggregate({
+      where: {
+        createdAt: { gte: monthStart },
+        paymentStatus: 'paid',
+        deletedByUser: false,
+      },
+      _sum: { total: true },
+    });
 
     // 客单价
-    const avgOrderPrice = monthOrders > 0 ? Math.round((monthIncome._sum.amount || 0) / monthOrders) : 0;
+    const avgOrderPrice = monthOrders > 0 ? Math.round((monthOrderTotal._sum.total || 0) / monthOrders) : 0;
 
     res.json({
       balance,
