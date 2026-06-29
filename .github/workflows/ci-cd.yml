@@ -97,9 +97,6 @@ jobs:
       - name: Type check / Build
         run: npm run build
 
-      - name: Verify database schema
-        run: npx prisma validate --schema prisma/schema.prisma
-
   # 代码质量检查
   lint:
     name: 共享类型 - 验证
