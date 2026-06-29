@@ -22,7 +22,6 @@ const IGNORE_PATTERNS = [
   'node_modules',
   'dist',
   '.git',
-  '.github',
   '.env',
   '.env.local',
   '.env.production',
