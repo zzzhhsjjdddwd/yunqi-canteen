@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma, io } from "../app.js";
-import { authMiddleware, AuthRequest } from "../middleware/auth.js";
+import { authMiddleware } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
@@ -16,7 +16,7 @@ function generateOrderNo() {
 }
 
 // 可选鉴权中间件：有 token 就解析，没有也不报错
-function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction) {
+function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return next();
   try {
@@ -76,7 +76,7 @@ router.post("/", async (req, res) => {
 // - 管理员请求交给下面的管理端 handler (next('route'))
 // - 有 user token: 返回该用户的订单
 // - 无 token / token 无效: 返回空数组 (不允许匿名查看)
-router.get("/", optionalAuth, async (req: AuthRequest, res, next) => {
+router.get("/", optionalAuth, async (req: Request, res, next) => {
   if (req.adminId) return next('route');
   if (!req.userId) return res.json([]);
   try {
@@ -101,7 +101,7 @@ router.get("/", optionalAuth, async (req: AuthRequest, res, next) => {
 });
 
 // 用户删除订单（软删除，仅标记 deletedByUser）
-router.patch("/:id/delete", optionalAuth, async (req: AuthRequest, res, next) => {
+router.patch("/:id/delete", optionalAuth, async (req: Request, res, next) => {
   if (req.adminId) return next('route');
   if (!req.userId) return res.status(401).json({ error: "请先登录" });
 
@@ -243,7 +243,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 // ====== 公开接口 (鉴权) ======
 
 // 获取订单详情 (需鉴权 - 只能查看自己的订单，管理员可查看所有)
-router.get("/:id", optionalAuth, async (req: AuthRequest, res) => {
+router.get("/:id", optionalAuth, async (req: Request, res) => {
   try {
     const order = await prisma.order.findUnique({
       where: { id: req.params.id },
@@ -272,7 +272,7 @@ router.get("/:id", optionalAuth, async (req: AuthRequest, res) => {
 });
 
 // 客户端取消订单 (需鉴权 - 只能取消自己的订单)
-router.post("/:id/cancel", optionalAuth, async (req: AuthRequest, res) => {
+router.post("/:id/cancel", optionalAuth, async (req: Request, res) => {
   try {
     const order = await prisma.order.findUnique({ where: { id: req.params.id } });
     if (!order) { return res.status(404).json({ error: "订单不存在" }); }
