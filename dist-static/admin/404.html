@@ -2,17 +2,17 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>云栖浅食 - 客户端重定向</title>
+  <title>云栖浅食 - 管理端重定向</title>
   <script>
     var l = window.location;
     l.replace(
       l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-      '/yunqi-canteen/client/index.html' +
+      '/yunqi-canteen/admin/index.html' +
       l.search + (l.hash || '#/')
     );
   </script>
 </head>
 <body>
-  <p>正在加载点餐页面...</p>
+  <p>正在加载管理后台...</p>
 </body>
 </html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>云栖浅食 - 重定向中</title>
+  <script>
+    // GitHub Pages SPA redirect hack
+    // Store the path and redirect to the appropriate index.html
+    var pathSegmentsToKeep = 1; // Keep /yunqi-canteen
+    var l = window.location;
+    var path = l.pathname;
+    
+    // Determine which app to redirect to
+    if (path.startsWith('/yunqi-canteen/admin/')) {
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        '/yunqi-canteen/admin/index.html' +
+        l.search + (l.hash || '#/')
+      );
+    } else if (path.startsWith('/yunqi-canteen/client/')) {
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        '/yunqi-canteen/client/index.html' +
+        l.search + (l.hash || '#/')
+      );
+    } else {
+      // Default redirect to client
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        '/yunqi-canteen/client/index.html' +
+        l.search + (l.hash || '#/')
+      );
+    }
+  </script>
+</head>
+<body>
+  <p>正在加载云栖浅食...</p>
+</body>
+</html>
