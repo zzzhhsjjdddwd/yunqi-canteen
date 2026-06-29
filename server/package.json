@@ -4,11 +4,14 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate --schema=src/prisma/schema.prisma && tsc",
     "start": "node dist/server.js",
     "db:push": "prisma db push --schema=src/prisma/schema.prisma",
     "db:seed": "tsx src/prisma/seed.ts",
     "db:studio": "prisma studio --schema=src/prisma/schema.prisma"
+  },
+  "prisma": {
+    "schema": "src/prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
