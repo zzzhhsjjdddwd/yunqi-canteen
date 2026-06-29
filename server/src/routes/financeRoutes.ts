@@ -594,7 +594,7 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
       const monthStart = new Date(targetYear, m, 1);
       const monthEnd = new Date(targetYear, m + 1, 0, 23, 59, 59);
 
-      const [income, expense, orderCount] = await Promise.all([
+      const [income, expense, orderCount, orderTotal] = await Promise.all([
         prisma.transaction.aggregate({
           where: { type: 'income', status: 'completed', createdAt: { gte: monthStart, lte: monthEnd } },
           _sum: { amount: true },
@@ -610,11 +610,20 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
             deletedByUser: false,
           },
         }),
+        prisma.order.aggregate({
+          where: {
+            createdAt: { gte: monthStart, lte: monthEnd },
+            paymentStatus: 'paid',
+            deletedByUser: false,
+          },
+          _sum: { total: true },
+        }),
       ]);
 
       const incomeAmt = income._sum.amount || 0;
       const expenseAmt = expense._sum.amount || 0;
       const profit = incomeAmt - expenseAmt;
+      const orderTotalAmt = orderTotal._sum.total || 0;
 
       months.push({
         month: m + 1,
@@ -623,7 +632,7 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
         profit,
         profitRate: incomeAmt > 0 ? Math.round((profit / incomeAmt) * 1000) / 10 : 0,
         orderCount,
-        avgOrderPrice: orderCount > 0 ? Math.round(incomeAmt / orderCount) : 0,
+        avgOrderPrice: orderCount > 0 ? Math.round(orderTotalAmt / orderCount) : 0,
       });
     }
 
@@ -631,6 +640,9 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
     const totalExpense = months.reduce((s, m) => s + m.expense, 0);
     const totalProfit = totalIncome - totalExpense;
     const totalOrders = months.reduce((s, m) => s + m.orderCount, 0);
+    const totalOrderRevenue = months.reduce((s, m) => {
+      return s + (m.orderCount > 0 ? m.avgOrderPrice * m.orderCount : 0);
+    }, 0);
 
     res.json({
       year: targetYear,
@@ -641,7 +653,7 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
         totalProfit,
         profitRate: totalIncome > 0 ? Math.round((totalProfit / totalIncome) * 1000) / 10 : 0,
         totalOrders,
-        avgOrderPrice: totalOrders > 0 ? Math.round(totalIncome / totalOrders) : 0,
+        avgOrderPrice: totalOrders > 0 ? Math.round(totalOrderRevenue / totalOrders) : 0,
       },
     });
   } catch (error) {
