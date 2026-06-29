@@ -15,8 +15,18 @@ services:
       - key: ADMIN_PASSWORD
         value: admin123
       - key: DATABASE_URL
-        value: file:./data/prisma.db
+        fromDatabase:
+          name: yunqi-db
+          property: connectionString
     healthCheckPath: /api/health
     autoDeploy: yes
     branch: main
     rootDir: server
+
+databases:
+  - name: yunqi-db
+    plan: free
+    region: ohio
+    postgresMajorVersion: "16"
+    databaseName: yunqi
+    user: yunqi_user
