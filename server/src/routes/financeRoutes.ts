@@ -642,4 +642,236 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
   }
 });
 
+// ============================================
+// 智能财务分析（基于真实订单数据）
+// ============================================
+router.get('/analytics', async (req: Request, res: Response) => {
+  try {
+    const { period = 'month' } = req.query as any;
+    
+    // 计算时间范围
+    const now = new Date();
+    let currentStart: Date, previousStart: Date, previousYearStart: Date;
+    
+    if (period === 'today') {
+      currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      previousStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    } else if (period === 'week') {
+      currentStart = new Date(now);
+      currentStart.setDate(now.getDate() - 7);
+      previousStart = new Date(now);
+      previousStart.setDate(now.getDate() - 14);
+      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    } else if (period === 'year') {
+      currentStart = new Date(now.getFullYear(), 0, 1);
+      previousStart = new Date(now.getFullYear() - 1, 0, 1);
+      previousYearStart = new Date(now.getFullYear() - 2, 0, 1);
+    } else {
+      // month
+      currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    }
+
+    // 本期数据（从真实订单统计）
+    const [currentOrders, currentTransactions] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          createdAt: { gte: currentStart },
+          paymentStatus: 'paid',
+          deletedByUser: false,
+        },
+        include: { items: true },
+      }),
+      prisma.transaction.findMany({
+        where: {
+          createdAt: { gte: currentStart },
+          status: 'completed',
+        },
+      }),
+    ]);
+
+    // 上期数据
+    const previousOrders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: previousStart, lt: currentStart },
+        paymentStatus: 'paid',
+        deletedByUser: false,
+      },
+    });
+
+    // 去年同期数据
+    const previousYearOrders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: previousYearStart, lt: previousStart },
+        paymentStatus: 'paid',
+        deletedByUser: false,
+      },
+    });
+
+    // 计算各项指标
+    const currentIncome = currentOrders.reduce((sum, o) => sum + o.total, 0);
+    const currentExpense = currentTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const currentProfit = currentIncome - currentExpense;
+    const currentOrderCount = currentOrders.length;
+
+    const previousIncome = previousOrders.reduce((sum, o) => sum + o.total, 0);
+    const previousOrderCount = previousOrders.length;
+
+    const previousYearIncome = previousYearOrders.reduce((sum, o) => sum + o.total, 0);
+    const previousYearOrderCount = previousYearOrders.length;
+
+    // 环比增长
+    const momGrowth = previousIncome > 0 
+      ? Math.round(((currentIncome - previousIncome) / previousIncome) * 1000) / 10 
+      : 0;
+    
+    // 同比增长
+    const yoyGrowth = previousYearIncome > 0 
+      ? Math.round(((currentIncome - previousYearIncome) / previousYearIncome) * 1000) / 10 
+      : 0;
+
+    // 客单价分析
+    const avgOrderPrice = currentOrderCount > 0 ? Math.round(currentIncome / currentOrderCount) : 0;
+    const previousAvgOrderPrice = previousOrderCount > 0 ? Math.round(previousIncome / previousOrderCount) : 0;
+
+    // 商品销售排行（从订单明细统计）
+    const productSales: Record<string, { name: string; quantity: number; revenue: number }> = {};
+    for (const order of currentOrders) {
+      for (const item of order.items) {
+        if (!productSales[item.productId]) {
+          productSales[item.productId] = { name: item.productName, quantity: 0, revenue: 0 };
+        }
+        productSales[item.productId].quantity += item.quantity;
+        productSales[item.productId].revenue += item.price * item.quantity;
+      }
+    }
+    const topProducts = Object.entries(productSales)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
+      .slice(0, 10)
+      .map(([id, data]) => ({ productId: id, ...data }));
+
+    // 支付方式分布
+    const paymentMethods: Record<string, number> = {};
+    for (const tx of currentTransactions.filter(t => t.type === 'income' && t.paymentMethod)) {
+      paymentMethods[tx.paymentMethod] = (paymentMethods[tx.paymentMethod] || 0) + tx.amount;
+    }
+    const paymentDistribution = Object.entries(paymentMethods).map(([method, amount]) => ({
+      method,
+      amount,
+      percentage: currentIncome > 0 ? Math.round((amount / currentIncome) * 1000) / 10 : 0,
+    }));
+
+    // 时段分析（按小时统计）
+    const hourlyStats: Record<number, { orders: number; income: number }> = {};
+    for (const order of currentOrders) {
+      const hour = new Date(order.createdAt).getHours();
+      if (!hourlyStats[hour]) {
+        hourlyStats[hour] = { orders: 0, income: 0 };
+      }
+      hourlyStats[hour].orders += 1;
+      hourlyStats[hour].income += order.total;
+    }
+    const peakHours = Object.entries(hourlyStats)
+      .sort((a, b) => b[1].income - a[1].income)
+      .slice(0, 3)
+      .map(([hour, data]) => ({ hour: parseInt(hour), ...data }));
+
+    res.json({
+      period,
+      current: {
+        income: currentIncome,
+        expense: currentExpense,
+        profit: currentProfit,
+        profitRate: currentIncome > 0 ? Math.round((currentProfit / currentIncome) * 1000) / 10 : 0,
+        orderCount: currentOrderCount,
+        avgOrderPrice,
+      },
+      comparison: {
+        momIncome: previousIncome,
+        momGrowth,
+        momOrderCount: previousOrderCount,
+        yoyIncome: previousYearIncome,
+        yoyGrowth,
+        yoyOrderCount: previousYearOrderCount,
+        avgOrderPriceChange: previousAvgOrderPrice > 0 
+          ? Math.round(((avgOrderPrice - previousAvgOrderPrice) / previousAvgOrderPrice) * 1000) / 10 
+          : 0,
+      },
+      topProducts,
+      paymentDistribution,
+      peakHours,
+    });
+  } catch (error) {
+    console.error('Finance analytics error:', error);
+    res.status(500).json({ error: '获取财务分析失败' });
+  }
+});
+
+// ============================================
+// 订单统计（来自真实订单数据）
+// ============================================
+router.get('/order-stats', async (req: Request, res: Response) => {
+  try {
+    const { period = 'month' } = req.query as any;
+    
+    const now = new Date();
+    let startDate: Date;
+    
+    if (period === 'today') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'week') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+    } else if (period === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // 从真实订单统计收入
+    const paidOrders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        paymentStatus: 'paid',
+        deletedByUser: false,
+      },
+      include: { items: true },
+    });
+
+    const totalIncome = paidOrders.reduce((sum, o) => sum + o.total, 0);
+    const totalOrders = paidOrders.length;
+    const avgOrderPrice = totalOrders > 0 ? Math.round(totalIncome / totalOrders) : 0;
+
+    // 按时段分组
+    const dailyStats: Record<string, { orders: number; income: number }> = {};
+    for (const order of paidOrders) {
+      const dateKey = new Date(order.createdAt).toISOString().split('T')[0];
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = { orders: 0, income: 0 };
+      }
+      dailyStats[dateKey].orders += 1;
+      dailyStats[dateKey].income += order.total;
+    }
+
+    const dailyTrend = Object.entries(dailyStats)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, data]) => ({ date, ...data }));
+
+    res.json({
+      period,
+      totalIncome,
+      totalOrders,
+      avgOrderPrice,
+      dailyTrend,
+    });
+  } catch (error) {
+    console.error('Order stats error:', error);
+    res.status(500).json({ error: '获取订单统计失败' });
+  }
+});
+
 export default router;

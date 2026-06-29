@@ -182,10 +182,87 @@ router.get("/public", async (req, res) => {
   }
 });
 
+// 生成交易流水号
+function generateReferenceNo() {
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `TX${y}${m}${d}${rand}`;
+}
+
+// 计算当前账户余额
+async function getCurrentBalance(prisma) {
+  const lastTx = await prisma.transaction.findFirst({
+    where: { status: 'completed' },
+    orderBy: { createdAt: 'desc' },
+  });
+  return lastTx?.balanceAfter || 0;
+}
+
+// 创建交易记录
+async function createTransaction(prisma, data) {
+  const currentBalance = await getCurrentBalance(prisma);
+  const newBalance = data.type === 'income' 
+    ? currentBalance + data.amount 
+    : currentBalance - data.amount;
+  
+  return prisma.transaction.create({
+    data: {
+      type: data.type,
+      category: data.category,
+      amount: data.amount,
+      balanceAfter: newBalance,
+      orderId: data.orderId,
+      description: data.description,
+      remark: data.remark,
+      operator: data.operator,
+      referenceNo: generateReferenceNo(),
+      paymentMethod: data.paymentMethod,
+      status: 'completed',
+    },
+  });
+}
+
 // 标记订单已支付（管理端）
 router.patch("/:id/pay", authMiddleware, async (req, res) => {
   try {
-    const order = await prisma.order.update({ where: { id: req.params.id }, data: { paymentStatus: "paid", status: "paid" }, include: { items: true } });
+    const { paymentMethod = 'cash' } = req.body;
+    
+    // 先获取订单信息
+    const existingOrder = await prisma.order.findUnique({ 
+      where: { id: req.params.id },
+      include: { items: true }
+    });
+    
+    if (!existingOrder) {
+      return res.status(404).json({ error: "订单不存在" });
+    }
+    
+    // 检查是否已支付，避免重复创建交易记录
+    if (existingOrder.paymentStatus === 'paid') {
+      return res.status(400).json({ error: "订单已支付" });
+    }
+    
+    // 更新订单状态
+    const order = await prisma.order.update({ 
+      where: { id: req.params.id }, 
+      data: { paymentStatus: "paid", status: "paid" }, 
+      include: { items: true } 
+    });
+    
+    // 自动创建交易记录（收入）
+    await createTransaction(prisma, {
+      type: 'income',
+      category: '销售收入',
+      amount: order.total,
+      orderId: order.id,
+      description: `订单支付 - ${order.orderNo}`,
+      operator: req.adminUsername || 'admin',
+      paymentMethod: paymentMethod,
+    });
+    
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
@@ -216,8 +293,52 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
 // 确认收款
 router.post("/:id/confirm", authMiddleware, async (req, res) => {
   try {
-    const { success } = req.body;
-    const order = await prisma.order.update({ where: { id: req.params.id }, data: { paymentStatus: success ? "paid" : "failed", status: success ? "paid" : "cancelled" }, include: { items: true } });
+    const { success, paymentMethod = 'cash' } = req.body;
+    
+    // 先获取订单信息
+    const existingOrder = await prisma.order.findUnique({ 
+      where: { id: req.params.id },
+      include: { items: true }
+    });
+    
+    if (!existingOrder) {
+      return res.status(404).json({ error: "订单不存在" });
+    }
+    
+    // 更新订单状态
+    const order = await prisma.order.update({ 
+      where: { id: req.params.id }, 
+      data: { paymentStatus: success ? "paid" : "failed", status: success ? "paid" : "cancelled" }, 
+      include: { items: true } 
+    });
+    
+    // 支付成功时自动创建交易记录（收入）
+    if (success && existingOrder.paymentStatus !== 'paid') {
+      await createTransaction(prisma, {
+        type: 'income',
+        category: '销售收入',
+        amount: order.total,
+        orderId: order.id,
+        description: `订单支付 - ${order.orderNo}`,
+        operator: req.adminUsername || 'admin',
+        paymentMethod: paymentMethod,
+      });
+    }
+    
+    // 支付失败时创建退款支出记录
+    if (!success && existingOrder.paymentStatus !== 'paid') {
+      await createTransaction(prisma, {
+        type: 'expense',
+        category: '退款支出',
+        amount: order.total,
+        orderId: order.id,
+        description: `支付失败退款 - ${order.orderNo}`,
+        remark: '客户支付失败退款',
+        operator: req.adminUsername || 'admin',
+        paymentMethod: paymentMethod,
+      });
+    }
+    
     io.emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
