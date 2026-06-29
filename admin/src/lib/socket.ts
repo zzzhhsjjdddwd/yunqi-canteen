@@ -4,7 +4,7 @@ import type { NewOrderData, OrderStatusUpdateData, PaymentConfirmData } from '..
 let socket: Socket | null = null;
 
 // In production: Use Railway backend for direct WebSocket connection
-const SERVER_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'https://yunqi-canteen-production.up.railway.app');
+const SERVER_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'https://yunqi-deploy.onrender.com');
 
 export function getSocket(): Socket {
   if (!socket) {

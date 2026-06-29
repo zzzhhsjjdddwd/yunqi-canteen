@@ -4,7 +4,7 @@ import type { PaymentConfirmData, OrderStatusUpdateData } from '../../../shared/
 let socket: Socket | null = null;
 
 // 在开发环境中通过Vite代理，生产环境直接连接到部署的后端
-const SERVER_URL = import.meta.env.DEV ? '' : 'https://yunqi-canteen-production.up.railway.app';
+const SERVER_URL = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
 function getToken(): string | null {
   try {

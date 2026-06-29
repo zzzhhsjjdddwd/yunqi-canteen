@@ -1,6 +1,6 @@
 import type { Category, Product, Order, StatsData, Settings } from '../../../shared/types';
 
-const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-canteen-production.up.railway.app';
+const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
 export function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;

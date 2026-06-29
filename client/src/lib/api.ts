@@ -1,7 +1,7 @@
 import type { Category, Product, Order, CreateOrderRequest, User, Address, AuthResponse } from '../../../shared/types';
 import { useAuthStore } from '../stores/authStore';
 
-const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-canteen-production.up.railway.app';
+const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
 export function resolveImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
