@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ChevronUp } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
@@ -16,6 +17,7 @@ function FloatingCartComponent() {
   const navigate = useNavigate();
   const [bounce, setBounce] = useState(false);
   const [prevCount, setPrevCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
   const items = useCartStore((state) => state.items);
 
@@ -35,6 +37,11 @@ function FloatingCartComponent() {
   const isEmpty = summary.count === 0;
 
   useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
     if (summary.count > prevCount && summary.count > 0) {
       setBounce(true);
       const timer = setTimeout(() => setBounce(false), 600);
@@ -43,23 +50,26 @@ function FloatingCartComponent() {
     setPrevCount(summary.count);
   }, [summary.count, prevCount]);
 
-  return (
+  const cartContent = (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 pointer-events-none',
-        'animate-fade-in-up'
+        'fixed bottom-0 left-0 right-0 z-[9999] pointer-events-none',
+        mounted && 'animate-fade-in-up'
       )}
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      style={{
+        padding: '0 16px calc(env(safe-area-inset-bottom, 0px) + 16px)',
+      }}
       role="region"
       aria-label="购物车栏"
     >
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto w-full max-w-2xl">
         <div
           className={cn(
             'pointer-events-auto relative flex items-center rounded-full',
             'bg-white/90 backdrop-blur-2xl border border-white/60',
             'shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]',
             'transition-all duration-300 ease-out',
+            'px-2 sm:px-3 py-2 sm:py-2.5',
             isEmpty ? 'opacity-70' : 'opacity-100',
             bounce && 'animate-cart-bounce'
           )}
@@ -71,7 +81,7 @@ function FloatingCartComponent() {
           <CartSheet>
             <button
               className={cn(
-                'relative flex items-center gap-2 pl-3 pr-4 py-2.5',
+                'relative flex items-center gap-2 pl-2 sm:pl-3 pr-3 sm:pr-4 py-2',
                 'transition-all duration-200 active:scale-95',
                 isEmpty ? 'cursor-default' : 'cursor-pointer'
               )}
@@ -80,7 +90,7 @@ function FloatingCartComponent() {
               <div className="relative">
                 <div
                   className={cn(
-                    'w-11 h-11 rounded-full flex items-center justify-center',
+                    'w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center',
                     'transition-all duration-300',
                     isEmpty
                       ? 'bg-gray-100'
@@ -133,12 +143,12 @@ function FloatingCartComponent() {
             )}
           </div>
 
-          <div className="pr-1.5">
+          <div className="pr-1 sm:pr-1.5">
             <button
               onClick={() => navigate('/menu/checkout')}
               disabled={isEmpty}
               className={cn(
-                'relative px-6 py-3 rounded-full font-bold text-sm',
+                'relative px-5 sm:px-6 py-2.5 sm:py-3 rounded-full font-bold text-sm',
                 'transition-all duration-200 active:scale-95',
                 'overflow-hidden',
                 isEmpty
@@ -157,6 +167,10 @@ function FloatingCartComponent() {
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(cartContent, document.body);
 }
 
 const FloatingCart = memo(FloatingCartComponent);
