@@ -1,5 +1,6 @@
 import type { Category, Product, Order, CreateOrderRequest, User, Address, AuthResponse } from '../../../shared/types';
 import { useAuthStore } from '../stores/authStore';
+import { getCache, setCache } from './cache';
 
 const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
@@ -124,8 +125,24 @@ export async function setDefaultAddress(id: string): Promise<Address> {
 }
 
 // Categories
-export async function getCategories(): Promise<Category[]> {
-  return request<Category[]>('/api/categories');
+export async function getCategories(useCache: boolean = true): Promise<Category[]> {
+  const cacheKey = 'categories';
+  
+  if (useCache) {
+    const cached = getCache<Category[]>(cacheKey);
+    if (cached) {
+      request<Category[]>('/api/categories')
+        .then(data => {
+          setCache(cacheKey, data, 10 * 60 * 1000);
+        })
+        .catch(() => {});
+      return cached;
+    }
+  }
+  
+  const data = await request<Category[]>('/api/categories');
+  setCache(cacheKey, data, 10 * 60 * 1000);
+  return data;
 }
 
 function normalizeProduct(p: any): Product {
@@ -138,8 +155,23 @@ function normalizeProduct(p: any): Product {
 }
 
 // Products
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(useCache: boolean = true): Promise<Product[]> {
+  const cacheKey = 'products';
+  
+  if (useCache) {
+    const cached = getCache<any[]>(cacheKey);
+    if (cached) {
+      request<any[]>('/api/products')
+        .then(data => {
+          setCache(cacheKey, data, 5 * 60 * 1000);
+        })
+        .catch(() => {});
+      return cached.map(normalizeProduct);
+    }
+  }
+  
   const products = await request<any[]>('/api/products');
+  setCache(cacheKey, products, 5 * 60 * 1000);
   return products.map(normalizeProduct);
 }
 

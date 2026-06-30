@@ -764,12 +764,11 @@
   position: fixed;
   left: 0;
   right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   z-index: 50;
   display: flex;
   justify-content: center;
-  height: 100vh;
-  align-items: flex-end;
-  padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  padding: 0 12px;
   pointer-events: none;
   animation: floatingCartEnter 0.5s var(--ease-out-back) both;
   will-change: transform;

@@ -3,7 +3,7 @@ import { QrCode } from 'lucide-react';
 
 export default function PaymentQRCard() {
   const [imageError, setImageError] = useState(false);
-  const paymentQR = '/wechat-qr.jpg';
+  const paymentQR = `${import.meta.env.BASE_URL}wechat-qr.jpg`;
 
   return (
     <div className="mx-4 mt-4">

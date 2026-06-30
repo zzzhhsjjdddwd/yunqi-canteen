@@ -27,7 +27,7 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
   const [imageError, setImageError] = useState(false);
   const updateOrderStatus = useOrderStore((state) => state.updateOrderStatus);
 
-  const qrUrl = '/wechat-qr.jpg';
+  const qrUrl = `${import.meta.env.BASE_URL}wechat-qr.jpg`;
 
   useEffect(() => {
     if (open) {
