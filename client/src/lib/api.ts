@@ -125,7 +125,10 @@ export async function setDefaultAddress(id: string): Promise<Address> {
 }
 
 // Categories
-export async function getCategories(useCache: boolean = true): Promise<Category[]> {
+export async function getCategories(
+  useCache: boolean = true,
+  onUpdate?: (data: Category[]) => void
+): Promise<Category[]> {
   const cacheKey = 'categories';
   
   if (useCache) {
@@ -133,7 +136,8 @@ export async function getCategories(useCache: boolean = true): Promise<Category[
     if (cached) {
       request<Category[]>('/api/categories')
         .then(data => {
-          setCache(cacheKey, data, 10 * 60 * 1000);
+          setCache(cacheKey, data, 1 * 60 * 1000);
+          onUpdate?.(data);
         })
         .catch(() => {});
       return cached;
@@ -141,7 +145,7 @@ export async function getCategories(useCache: boolean = true): Promise<Category[
   }
   
   const data = await request<Category[]>('/api/categories');
-  setCache(cacheKey, data, 10 * 60 * 1000);
+  setCache(cacheKey, data, 1 * 60 * 1000);
   return data;
 }
 
@@ -155,7 +159,10 @@ function normalizeProduct(p: any): Product {
 }
 
 // Products
-export async function getProducts(useCache: boolean = true): Promise<Product[]> {
+export async function getProducts(
+  useCache: boolean = true,
+  onUpdate?: (data: Product[]) => void
+): Promise<Product[]> {
   const cacheKey = 'products';
   
   if (useCache) {
@@ -163,7 +170,8 @@ export async function getProducts(useCache: boolean = true): Promise<Product[]> 
     if (cached) {
       request<any[]>('/api/products')
         .then(data => {
-          setCache(cacheKey, data, 5 * 60 * 1000);
+          setCache(cacheKey, data, 30 * 1000);
+          onUpdate?.(data.map(normalizeProduct));
         })
         .catch(() => {});
       return cached.map(normalizeProduct);
@@ -171,7 +179,7 @@ export async function getProducts(useCache: boolean = true): Promise<Product[]> 
   }
   
   const products = await request<any[]>('/api/products');
-  setCache(cacheKey, products, 5 * 60 * 1000);
+  setCache(cacheKey, products, 30 * 1000);
   return products.map(normalizeProduct);
 }
 
