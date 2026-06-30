@@ -597,12 +597,12 @@
   }
 
   .page-fade-in {
-    animation: pageFadeIn 0.3s var(--ease-out-expo) forwards;
+    animation: pageFadeIn 0.3s var(--ease-out-expo) both;
   }
 
   @keyframes pageFadeIn {
     from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
   }
 
   .stagger-fade-in {
@@ -615,25 +615,25 @@
   }
 
   .pop-in {
-    animation: popIn 0.25s var(--ease-out-back) forwards;
+    animation: popIn 0.25s var(--ease-out-back) both;
   }
 
   @keyframes popIn {
     from { opacity: 0; transform: scale(0.95) translateY(6px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
+    to { opacity: 1; transform: none; }
   }
 
   .spin-in {
-    animation: spinIn 0.5s var(--ease-out-back) forwards;
+    animation: spinIn 0.5s var(--ease-out-back) both;
   }
 
   @keyframes spinIn {
     from { opacity: 0; transform: scale(0.5) rotate(-180deg); }
-    to { opacity: 1; transform: scale(1) rotate(0deg); }
+    to { opacity: 1; transform: none; }
   }
 
   .bounce-in {
-    animation: bounceIn 0.4s var(--ease-out-back) forwards;
+    animation: bounceIn 0.4s var(--ease-out-back) both;
   }
 
   @keyframes bounceIn {
@@ -718,12 +718,12 @@
   }
 
   .slide-up-fade {
-    animation: slideUpFade 0.3s var(--ease-out-expo) forwards;
+    animation: slideUpFade 0.3s var(--ease-out-expo) both;
   }
 
   @keyframes slideUpFade {
     from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    to { opacity: 1; transform: none; }
   }
 
   .safe-bottom {
@@ -847,7 +847,7 @@
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 .animate-fade-in-up {
