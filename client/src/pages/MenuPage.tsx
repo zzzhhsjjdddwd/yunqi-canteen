@@ -19,14 +19,27 @@ export default function MenuPage() {
 
   useEffect(() => {
     loadData();
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [productsData, categoriesData] = await Promise.all([
-        getProducts(),
-        getCategories(),
+        getProducts(true, (newProducts) => {
+          setProducts(newProducts);
+        }),
+        getCategories(true, (newCategories) => {
+          setCategories(newCategories.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder));
+        }),
       ]);
       if (productsData?.length > 0) {
         setProducts(productsData);
