@@ -217,10 +217,23 @@ export default function ProductsPage() {
             >
               <div className="aspect-square bg-gradient-to-br from-primary/10 to-purple-500/10 flex items-center justify-center relative">
                 {product.image ? (
-                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
+                  <img 
+                    src={product.image} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const parent = e.currentTarget.parentElement;
+                      if (parent) {
+                        const fallback = parent.querySelector('.image-fallback');
+                        if (fallback) fallback.classList.remove('hidden');
+                      }
+                    }}
+                  />
+                ) : null}
+                <div className={`image-fallback ${product.image ? 'hidden' : ''} absolute inset-0 flex items-center justify-center`}>
                   <Image className="h-12 w-12 text-muted-foreground opacity-50" />
-                )}
+                </div>
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => {

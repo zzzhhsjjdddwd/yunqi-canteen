@@ -214,6 +214,9 @@ export default function CheckoutPage() {
                 src={product.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'}
                 alt={product.name}
                 className="h-16 w-16 rounded-xl object-cover shadow-md"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100';
+                }}
               />
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate">{product.name}</h3>
@@ -263,11 +266,11 @@ export default function CheckoutPage() {
       {/* 提交按钮 */}
       <button
         onClick={handleCheckout}
-        disabled={loading}
+        disabled={loading || !selectedAddress}
         className={`w-full flex items-center justify-center gap-2 ${
           selectedAddress
             ? 'glass-button'
-            : 'bg-gray-300 text-gray-500 cursor-pointer rounded-full py-3 font-medium'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed rounded-full py-3 font-medium opacity-70'
         }`}
       >
         {loading ? (

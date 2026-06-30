@@ -1,62 +1,9 @@
-import { useState, useEffect } from 'react';
-import { QrCode, Loader2 } from 'lucide-react';
-import { getPaymentQR } from '../lib/api';
+import { useState } from 'react';
+import { QrCode } from 'lucide-react';
 
 export default function PaymentQRCard() {
-  const [paymentQR, setPaymentQR] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchQR() {
-      try {
-        const data = await getPaymentQR();
-        setPaymentQR(data.paymentQR);
-      } catch (error) {
-        console.error('Failed to fetch payment QR:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchQR();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="mx-4 mt-4">
-        <div className="relative group">
-          <div className="absolute -inset-2 bg-gradient-to-r from-primary/20 via-accent/15 to-primary/20 rounded-[1.4rem] blur-xl opacity-60" />
-          <div className="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/60 shadow-[0_8px_32px_rgba(91,163,163,0.12),0_2px_8px_rgba(201,169,110,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-            <div className="relative p-6 flex flex-col items-center justify-center min-h-[280px]">
-              <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
-              <p className="text-sm text-muted-foreground">加载中...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!paymentQR) {
-    return (
-      <div className="mx-4 mt-4">
-        <div className="relative group">
-          <div className="absolute -inset-2 bg-gradient-to-r from-primary/20 via-accent/15 to-primary/20 rounded-[1.4rem] blur-xl opacity-60" />
-          <div className="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-2xl border border-white/60 shadow-[0_8px_32px_rgba(91,163,163,0.12),0_2px_8px_rgba(201,169,110,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]">
-            <div className="relative p-6 flex flex-col items-center justify-center min-h-[280px]">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-muted/30 to-muted/20 flex items-center justify-center mb-4">
-                <QrCode className="h-10 w-10 text-muted-foreground/50" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">添加微信付款</h3>
-              <p className="text-sm text-muted-foreground text-center">
-                商家暂未设置收款码<br />
-                请稍后再试
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const [imageError, setImageError] = useState(false);
+  const paymentQR = '/wechat-qr.jpg';
 
   return (
     <div className="mx-4 mt-4">
@@ -91,18 +38,26 @@ export default function PaymentQRCard() {
               {/* 二维码背景装饰 */}
               <div className="absolute -inset-3 bg-gradient-to-br from-green-100/50 to-emerald-100/40 rounded-3xl blur-sm" />
               <div className="relative bg-white p-3 rounded-2xl shadow-lg shadow-green-500/10 border border-green-100">
-                <img 
-                  src={paymentQR}
-                  alt="收款二维码"
-                  className="w-48 h-48 object-contain rounded-xl"
-                  style={{ 
-                    WebkitTouchCallout: 'default',
-                    touchAction: 'manipulation',
-                    userSelect: 'none',
-                    pointerEvents: 'auto',
-                  }}
-                  draggable={false}
-                />
+                {!imageError ? (
+                  <img 
+                    src={paymentQR}
+                    alt="收款二维码"
+                    className="w-48 h-48 object-contain rounded-xl"
+                    style={{ 
+                      WebkitTouchCallout: 'default',
+                      touchAction: 'manipulation',
+                      userSelect: 'none',
+                      pointerEvents: 'auto',
+                    }}
+                    onError={() => setImageError(true)}
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="w-48 h-48 flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-green-50 to-emerald-50">
+                    <QrCode className="h-12 w-12 text-green-400 mb-2" />
+                    <p className="text-xs text-green-600/70">二维码加载中</p>
+                  </div>
+                )}
               </div>
               
               {/* 长按提示 */}

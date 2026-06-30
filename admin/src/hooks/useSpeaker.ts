@@ -9,9 +9,12 @@ export function useSpeaker() {
   const [cancelledText, setCancelledText] = useState('客户取消订单');
   const [paymentFailedText, setPaymentFailedText] = useState('客户支付失败');
   const [isAudioInitialized, setIsAudioInitialized] = useState(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
 
   const isLoadedFromServerRef = useRef(false);
   const textRef = useRef({ newOrderText, cancelledText, paymentFailedText });
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
   useEffect(() => {
     textRef.current = { newOrderText, cancelledText, paymentFailedText };
@@ -41,31 +44,61 @@ export function useSpeaker() {
     }
   }, []);
 
+  // iOS Safari voices are loaded asynchronously - listen for voiceschanged
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+
+    const loadVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const chineseVoice = voices.find(
+          (v) => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('cmn')
+        ) || voices.find((v) => v.default) || voices[0] || null;
+        voiceRef.current = chineseVoice;
+        setVoicesLoaded(true);
+      }
+    };
+
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  const getAudioContext = useCallback(() => {
+    if (!audioContextRef.current) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioContextRef.current = new AudioContextClass();
+      }
+    }
+    return audioContextRef.current;
+  }, []);
+
   const initAudio = useCallback(() => {
     if (isAudioInitialized) return;
     setIsAudioInitialized(true);
 
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContext) {
-      try {
-        const ctx = new AudioContext();
-        ctx.resume();
-      } catch (e) {
-        console.warn('AudioContext init failed:', e);
-      }
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch((e) => console.warn('AudioContext resume failed:', e));
     }
 
     if ('speechSynthesis' in window) {
       try {
+        speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance('');
         utterance.volume = 0;
         utterance.lang = 'zh-CN';
+        utterance.rate = 1;
         speechSynthesis.speak(utterance);
       } catch (e) {
         console.warn('SpeechSynthesis init failed:', e);
       }
     }
-  }, [isAudioInitialized]);
+  }, [isAudioInitialized, getAudioContext]);
 
   useEffect(() => {
     const handleFirstInteraction = () => {
@@ -124,13 +157,16 @@ export function useSpeaker() {
   const playDingSound = useCallback(() => {
     if (!speakerEnabled) return;
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
 
       const volume = Math.max(0.01, Math.min(1, (speakerVolume || 80) / 100 * 0.6));
       if (!isFinite(volume)) return;
 
-      const ctx = new AudioContext();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
@@ -138,22 +174,23 @@ export function useSpeaker() {
       gainNode.connect(ctx.destination);
 
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
-      oscillator.frequency.setValueAtTime(1320, ctx.currentTime + 0.24);
-      oscillator.frequency.setValueAtTime(1568, ctx.currentTime + 0.36);
+      const now = ctx.currentTime;
+      oscillator.frequency.setValueAtTime(880, now);
+      oscillator.frequency.setValueAtTime(1100, now + 0.12);
+      oscillator.frequency.setValueAtTime(1320, now + 0.24);
+      oscillator.frequency.setValueAtTime(1568, now + 0.36);
 
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.02);
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime + 0.4);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(volume, now + 0.02);
+      gainNode.gain.setValueAtTime(volume, now + 0.4);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
 
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.7);
+      oscillator.start(now);
+      oscillator.stop(now + 0.7);
     } catch (error) {
       console.error('Play ding sound error:', error);
     }
-  }, [speakerEnabled, speakerVolume]);
+  }, [speakerEnabled, speakerVolume, getAudioContext]);
 
   const speak = useCallback(
     (text: string) => {
@@ -168,15 +205,27 @@ export function useSpeaker() {
         utterance.rate = 1;
         utterance.pitch = 1;
 
-        const voices = speechSynthesis.getVoices();
-        const chineseVoice = voices.find(
-          (v) => v.lang.includes('zh') || v.lang.includes('CN')
-        );
-        if (chineseVoice) {
-          utterance.voice = chineseVoice;
+        if (voiceRef.current) {
+          utterance.voice = voiceRef.current;
+        } else {
+          const voices = speechSynthesis.getVoices();
+          const chineseVoice = voices.find(
+            (v) => v.lang.includes('zh') || v.lang.includes('CN') || v.lang.includes('cmn')
+          );
+          if (chineseVoice) {
+            utterance.voice = chineseVoice;
+            voiceRef.current = chineseVoice;
+          }
         }
 
-        speechSynthesis.speak(utterance);
+        // iOS Safari sometimes needs a small delay after user interaction
+        setTimeout(() => {
+          try {
+            speechSynthesis.speak(utterance);
+          } catch (e) {
+            console.warn('Speech synthesis speak failed:', e);
+          }
+        }, 50);
       } catch (error) {
         console.error('Speak error:', error);
       }
@@ -213,7 +262,7 @@ export function useSpeaker() {
 
       setTimeout(() => {
         speakNewOrderRef.current();
-      }, 700);
+      }, 750);
 
       const amount = (total / 100).toFixed(2);
       showNotification(
@@ -232,7 +281,7 @@ export function useSpeaker() {
 
       setTimeout(() => {
         speakCancelledRef.current();
-      }, 700);
+      }, 750);
 
       showNotification(
         '订单取消',
@@ -270,6 +319,7 @@ export function useSpeaker() {
     paymentFailedText,
     setPaymentFailedText,
     isAudioInitialized,
+    voicesLoaded,
     requestNotificationPermission,
     initAudio,
     speakNewOrder: () => speakNewOrderRef.current(),

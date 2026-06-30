@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { financeAPI, formatPrice, formatPriceShort } from '../api/finance';
+import type { FinanceAnalytics } from '../api/finance';
 
 const FinanceDashboardPage = () => {
   const [loading, setLoading] = useState(true);
@@ -8,6 +9,7 @@ const FinanceDashboardPage = () => {
   const [incomeStats, setIncomeStats] = useState<any>({ total: 0, list: [] });
   const [expenseStats, setExpenseStats] = useState<any>({ total: 0, list: [] });
   const [trendPeriod, setTrendPeriod] = useState('30d');
+  const [analytics, setAnalytics] = useState<FinanceAnalytics | null>(null);
 
   useEffect(() => {
     loadData();
@@ -16,16 +18,18 @@ const FinanceDashboardPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [ov, trend, incStats, expStats] = await Promise.all([
+      const [ov, trend, incStats, expStats, analyticsData] = await Promise.all([
         financeAPI.getOverview(),
         financeAPI.getTrend({ period: trendPeriod }),
-        financeAPI.getCategoryStats({ type: 'income', period: 'month' }),
-        financeAPI.getCategoryStats({ type: 'expense', period: 'month' }),
+        financeAPI.getCategoryStats({ type: 'income', period: trendPeriod }),
+        financeAPI.getCategoryStats({ type: 'expense', period: trendPeriod }),
+        financeAPI.getAnalytics(trendPeriod),
       ]);
       setOverview(ov);
       setTrendData(trend);
       setIncomeStats(incStats);
       setExpenseStats(expStats);
+      setAnalytics(analyticsData);
     } catch (error) {
       console.error('Load finance data error:', error);
     } finally {
@@ -199,6 +203,76 @@ const FinanceDashboardPage = () => {
         </div>
       </div>
 
+      {/* 智能分析卡片 */}
+      {analytics && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 环比增长率 */}
+          <div className="glass-card p-5">
+            <div className="text-sm text-muted-foreground mb-2">环比增长率</div>
+            <div className={`text-3xl font-bold mb-1 ${
+              analytics.comparison.momGrowth >= 0 ? 'text-success' : 'text-error'
+            }`}>
+              {analytics.comparison.momGrowth >= 0 ? '↑' : '↓'}{Math.abs(analytics.comparison.momGrowth).toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground">
+              较上期 {formatPriceShort(analytics.comparison.momIncome)}
+            </div>
+          </div>
+          
+          {/* 同比增长率 */}
+          <div className="glass-card p-5">
+            <div className="text-sm text-muted-foreground mb-2">同比增长率</div>
+            <div className={`text-3xl font-bold mb-1 ${
+              analytics.comparison.yoyGrowth >= 0 ? 'text-success' : 'text-error'
+            }`}>
+              {analytics.comparison.yoyGrowth >= 0 ? '↑' : '↓'}{Math.abs(analytics.comparison.yoyGrowth).toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground">
+              较去年同期 {formatPriceShort(analytics.comparison.yoyIncome)}
+            </div>
+          </div>
+          
+          {/* 客单价变化 */}
+          <div className="glass-card p-5">
+            <div className="text-sm text-muted-foreground mb-2">客单价变化</div>
+            <div className={`text-3xl font-bold mb-1 ${
+              analytics.comparison.avgOrderPriceChange >= 0 ? 'text-success' : 'text-error'
+            }`}>
+              {analytics.comparison.avgOrderPriceChange >= 0 ? '↑' : '↓'}{Math.abs(analytics.comparison.avgOrderPriceChange).toFixed(1)}%
+            </div>
+            <div className="text-xs text-muted-foreground">
+              当前 {formatPrice(analytics.current.avgOrderPrice)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 热卖商品排行 */}
+      {analytics && analytics.topProducts && analytics.topProducts.length > 0 && (
+        <div className="glass-card p-5">
+          <h3 className="text-lg font-semibold mb-4">热卖商品排行</h3>
+          <div className="space-y-3">
+            {analytics.topProducts.slice(0, 5).map((product, idx) => (
+              <div key={product.productId} className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  idx === 0 ? 'bg-yellow-400 text-yellow-900' :
+                  idx === 1 ? 'bg-gray-300 text-gray-700' :
+                  idx === 2 ? 'bg-amber-600 text-white' :
+                  'bg-white/50 text-foreground/60'
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{product.name}</div>
+                  <div className="text-xs text-muted-foreground">销量 {product.quantity}</div>
+                </div>
+                <div className="text-sm font-semibold text-success">{formatPrice(product.revenue)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 图表区域 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 收支趋势图 */}
@@ -346,6 +420,82 @@ const FinanceDashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {/* 支付方式分布 + 高峰时段 */}
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 支付方式分布 */}
+          <div className="glass-card p-5">
+            <h3 className="text-lg font-semibold mb-5">支付方式分布</h3>
+            {analytics.paymentDistribution && analytics.paymentDistribution.length > 0 ? (
+              <div className="space-y-4">
+                {analytics.paymentDistribution.map((payment) => (
+                  <div key={payment.method}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                        <span className="text-foreground/80">
+                          {payment.method === 'wechat' ? '微信' :
+                           payment.method === 'alipay' ? '支付宝' :
+                           payment.method === 'cash' ? '现金' : payment.method}
+                        </span>
+                      </div>
+                      <span className="font-medium">{formatPriceShort(payment.amount)}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-white/40 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-700"
+                        style={{ width: `${payment.percentage}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 text-right">{payment.percentage}%</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground/60 text-sm">
+                暂无支付数据
+              </div>
+            )}
+          </div>
+
+          {/* 高峰时段 */}
+          <div className="glass-card p-5">
+            <h3 className="text-lg font-semibold mb-5">高峰时段分析</h3>
+            {analytics.peakHours && analytics.peakHours.length > 0 ? (
+              <div className="space-y-4">
+                {analytics.peakHours.map((hour, idx) => (
+                  <div key={hour.hour} className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      idx === 0 ? 'bg-yellow-400 text-yellow-900' :
+                      idx === 1 ? 'bg-gray-300 text-gray-700' :
+                      'bg-amber-600 text-white'
+                    }`}>
+                      {hour.hour}:00
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-foreground/80">订单 {hour.orders} 笔</span>
+                        <span className="font-semibold text-success">{formatPriceShort(hour.income)}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/40 overflow-hidden mt-1">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all duration-700"
+                          style={{ width: `${analytics.peakHours[0].income > 0 ? (hour.income / analytics.peakHours[0].income) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground/60 text-sm">
+                暂无时段数据
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

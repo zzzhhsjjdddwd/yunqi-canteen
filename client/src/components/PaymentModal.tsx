@@ -10,7 +10,6 @@ import {
 } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { useOrderStore } from '../stores/orderStore';
-import { useSettingsStore } from '../stores/settingsStore';
 import { onPaymentConfirm } from '../lib/socket';
 import { getOrder } from '../lib/api';
 import type { PaymentConfirmData } from '../../../shared/types';
@@ -25,8 +24,16 @@ interface PaymentModalProps {
 export default function PaymentModal({ open, onClose, orderId, orderNo }: PaymentModalProps) {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'pending' | 'success' | 'failed'>('pending');
+  const [imageError, setImageError] = useState(false);
   const updateOrderStatus = useOrderStore((state) => state.updateOrderStatus);
-  const paymentQR = useSettingsStore((state) => state.paymentQR);
+
+  const qrUrl = '/wechat-qr.jpg';
+
+  useEffect(() => {
+    if (open) {
+      setImageError(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     const unsubscribe = onPaymentConfirm((data: PaymentConfirmData) => {
@@ -64,8 +71,6 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
     return () => clearInterval(interval);
   }, [open, orderId, status, updateOrderStatus]);
 
-  const qrUrl = paymentQR || '/default-qr.png';
-
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-md rounded-2xl border-white/50 bg-white/90 backdrop-blur-xl">
@@ -83,16 +88,25 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
           {status === 'pending' && (
             <>
               <div className="glass-card relative p-4">
-                <img
-                  src={qrUrl}
-                  alt="收款二维码"
-                  className="h-56 w-56 rounded-xl"
-                  style={{ 
-                    WebkitTouchCallout: 'default',
-                    touchAction: 'manipulation',
-                  }}
-                  draggable={false}
-                />
+                {!imageError ? (
+                  <img
+                    src={qrUrl}
+                    alt="收款二维码"
+                    className="h-56 w-56 rounded-xl"
+                    style={{ 
+                      WebkitTouchCallout: 'default',
+                      touchAction: 'manipulation',
+                    }}
+                    onError={() => setImageError(true)}
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="h-56 w-56 flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-green-50 to-emerald-50">
+                    <QrCode className="h-16 w-16 text-green-400 mb-3" />
+                    <p className="text-sm text-green-600/70 font-medium">二维码加载中</p>
+                    <p className="text-xs text-green-600/50 mt-1">请稍后重试</p>
+                  </div>
+                )}
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-4 py-2 backdrop-blur-sm shadow-lg">
                   <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                     <QrCode className="h-3 w-3" />

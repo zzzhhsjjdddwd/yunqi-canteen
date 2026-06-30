@@ -1,16 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Search, Flame } from 'lucide-react';
+import { ShoppingCart, Search, Flame, RefreshCw } from 'lucide-react';
 import { getProducts, getCategories } from '../lib/api';
 import ProductCard from '../components/ProductCard';
 import PaymentQRCard from '../components/PaymentQRCard';
+import { mockProducts, mockCategories } from '../data/mockMenu';
 import type { Product, Category } from '../../../shared/types';
 
 export default function MenuPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [categories, setCategories] = useState<Category[]>(
+    mockCategories.sort((a, b) => a.sortOrder - b.sortOrder)
+  );
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isRealData, setIsRealData] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -18,16 +22,22 @@ export default function MenuPage() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [productsData, categoriesData] = await Promise.all([
         getProducts(),
         getCategories(),
       ]);
-      setProducts(productsData);
-      setCategories(categoriesData.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder));
-      setError('');
+      if (productsData?.length > 0) {
+        setProducts(productsData);
+        setCategories(categoriesData.sort((a: Category, b: Category) => a.sortOrder - b.sortOrder));
+        setIsRealData(true);
+        setError('');
+      }
     } catch (err) {
-      setError('加载菜单失败，请刷新重试');
+      if (!isRealData) {
+        setError('网络较慢，正在使用离线菜单');
+      }
     } finally {
       setLoading(false);
     }
@@ -57,27 +67,21 @@ export default function MenuPage() {
     [products]
   );
 
-  if (loading) {
-    return <MenuPageSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <div className="glass-card p-8 space-y-4">
-            <p className="text-destructive font-medium">{error}</p>
-            <button onClick={loadData} className="glass-button px-6 py-2 text-sm">
-              重新加载
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 pb-8 page-fade-in">
+      {(loading || error) && (
+        <div className="mx-4 mt-2">
+          <div className={`glass-card px-4 py-3 flex items-center gap-3 ${
+            error ? 'border border-amber-200/50 bg-amber-50/80' : 'border border-primary/20 bg-primary/5'
+          }`}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : 'text-amber-600'}`} />
+            <p className={`text-sm ${error ? 'text-amber-700' : 'text-primary-700'}`}>
+              {error || '正在更新最新菜单...'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 收款二维码卡片 */}
       <PaymentQRCard />
 
@@ -165,51 +169,6 @@ export default function MenuPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MenuPageSkeleton() {
-  return (
-    <div className="space-y-6 pb-8">
-      <div className="mx-4 mt-4">
-        <div className="glass-card p-5">
-          <div className="h-6 w-40 shimmer rounded-lg" />
-          <div className="h-4 w-32 shimmer rounded-lg mt-2" />
-          <div className="flex gap-2 mt-3">
-            <div className="h-6 w-20 shimmer rounded-full" />
-            <div className="h-6 w-20 shimmer rounded-full" />
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-4">
-        <div className="h-11 shimmer rounded-xl" />
-      </div>
-
-      <div className="mx-4">
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-44">
-              <div className="h-48 shimmer rounded-xl" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="px-4">
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-9 w-20 shimmer rounded-full flex-shrink-0" />
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-4 grid grid-cols-2 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-64 shimmer rounded-xl" />
-        ))}
       </div>
     </div>
   );

@@ -1,19 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
-import { Upload, Volume2, Bell, PlayCircle, Smartphone, MonitorSpeaker } from 'lucide-react';
+import { useState } from 'react';
+import { Volume2, Bell, PlayCircle, Smartphone, MonitorSpeaker } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Label } from '../components/ui/Label';
 import { Switch } from '../components/ui/Switch';
 import { Slider } from '../components/ui/Slider';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { getPaymentQR, uploadPaymentQR, updateSpeakerSettings } from '../lib/api';
+import { updateSpeakerSettings } from '../lib/api';
 import { useSpeaker } from '../hooks/useSpeaker';
 
 export default function SettingsPage() {
-  const [paymentQR, setPaymentQR] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     notificationEnabled,
@@ -33,34 +30,6 @@ export default function SettingsPage() {
     notifyPaymentFailed,
     isAudioInitialized,
   } = useSpeaker();
-
-  useEffect(() => {
-    async function fetchQR() {
-      try {
-        const data = await getPaymentQR();
-        setPaymentQR(data.paymentQR);
-      } catch (error) {
-        console.error('Failed to fetch payment QR:', error);
-      }
-    }
-    fetchQR();
-  }, []);
-
-  const handleUploadQR = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const data = await uploadPaymentQR(file);
-      setPaymentQR(data.paymentQR);
-    } catch (error) {
-      console.error('Failed to upload QR:', error);
-      alert('上传失败，请重试');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSaveSettings = async () => {
     try {
@@ -95,58 +64,6 @@ export default function SettingsPage() {
   return (
     <div className="space-y-4 px-4 py-4 sm:space-y-6 sm:px-0 sm:py-0">
       <h1 className="text-2xl font-bold">设置</h1>
-
-      {/* Payment QR */}
-      <Card>
-        <CardHeader>
-          <CardTitle>收款二维码</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            上传您的微信收款二维码，顾客下单时将显示此二维码供扫描支付
-          </p>
-
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-            <div className="flex-shrink-0">
-              {paymentQR ? (
-                <img
-                  src={paymentQR}
-                  alt="收款二维码"
-                  className="h-40 w-40 rounded-xl border-2 border-primary/20 object-contain sm:h-48 sm:w-48"
-                />
-              ) : (
-                <div className="flex h-40 w-40 items-center justify-center rounded-xl border-2 border-dashed border-border sm:h-48 sm:w-48">
-                  <div className="text-center text-muted-foreground">
-                    <Upload className="mx-auto h-8 w-8" />
-                    <p className="mt-2 text-sm">未设置</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 space-y-4">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleUploadQR}
-                className="hidden"
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full sm:w-auto"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {uploading ? '上传中...' : '上传二维码'}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                支持 JPG、PNG、GIF 格式，建议尺寸 200x200 像素
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 提醒与播报设置（合并版） */}
       <Card>

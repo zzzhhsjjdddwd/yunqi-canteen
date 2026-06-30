@@ -82,7 +82,7 @@ export default function ProfilePage() {
               <p className="font-medium">收货地址</p>
               <p className="text-sm text-muted-foreground">
                 {defaultAddress
-                  ? `${defaultAddress.province}${defaultAddress.city}${defaultAddress.district}${defaultAddress.detail.slice(0, 10)}...`
+                  ? `${defaultAddress.province || ''}${defaultAddress.city || ''}${defaultAddress.district || ''}${(defaultAddress.detail || '').slice(0, 10)}${(defaultAddress.detail || '').length > 10 ? '...' : ''}`
                   : '暂无地址'}
               </p>
             </div>

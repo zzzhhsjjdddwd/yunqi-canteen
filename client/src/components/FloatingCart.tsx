@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
 import { formatPrice, cn } from '../lib/utils';
-import { useScrollY } from '../hooks/useScrollY';
 import CartSheet from './CartSheet';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -23,7 +22,6 @@ const EMPTY_SUMMARY: CartSummary = { count: 0, total: 0 };
  */
 function FloatingCartComponent() {
   const navigate = useNavigate();
-  const scrollY = useScrollY();
 
   const items = useCartStore((state) => state.items);
 
@@ -47,7 +45,6 @@ function FloatingCartComponent() {
       className={cn('floating-cart', isEmpty && 'floating-cart--empty')}
       role="region"
       aria-label="购物车栏"
-      style={{ top: `${scrollY}px` }}
     >
       <div className="floating-cart__card">
         <CartSheet>

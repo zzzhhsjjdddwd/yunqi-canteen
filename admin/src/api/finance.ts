@@ -109,6 +109,57 @@ export interface MonthlyReport {
   };
 }
 
+// 智能财务分析接口
+export interface FinanceAnalytics {
+  period: string;
+  current: {
+    income: number;
+    expense: number;
+    profit: number;
+    profitRate: number;
+    orderCount: number;
+    avgOrderPrice: number;
+  };
+  comparison: {
+    momIncome: number;
+    momGrowth: number;
+    momOrderCount: number;
+    yoyIncome: number;
+    yoyGrowth: number;
+    yoyOrderCount: number;
+    avgOrderPriceChange: number;
+  };
+  topProducts: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+  }>;
+  paymentDistribution: Array<{
+    method: string;
+    amount: number;
+    percentage: number;
+  }>;
+  peakHours: Array<{
+    hour: number;
+    orders: number;
+    income: number;
+  }>;
+}
+
+// 订单统计接口
+export interface OrderStats {
+  period: string;
+  totalIncome: number;
+  totalOrders: number;
+  avgOrderPrice: number;
+  dailyTrend: Array<{
+    date: string;
+    orders: number;
+    income: number;
+  }>;
+}
+
 export const financeAPI = {
   getOverview: () =>
     request<FinanceOverview>('/api/admin/finance/overview'),
@@ -181,6 +232,18 @@ export const financeAPI = {
   getMonthlyReport: (year?: number) => {
     const q = year ? `?year=${year}` : '';
     return request<MonthlyReport>(`/api/admin/finance/report/monthly${q}`);
+  },
+
+  // 智能财务分析
+  getAnalytics: (period?: string) => {
+    const q = period ? `?period=${period}` : '';
+    return request<FinanceAnalytics>(`/api/admin/finance/analytics${q}`);
+  },
+
+  // 订单统计
+  getOrderStats: (period?: string) => {
+    const q = period ? `?period=${period}` : '';
+    return request<OrderStats>(`/api/admin/finance/order-stats${q}`);
   },
 };
 
