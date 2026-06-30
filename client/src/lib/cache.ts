@@ -1,4 +1,5 @@
-const CACHE_PREFIX = 'yunqi_cache_';
+const CACHE_VERSION = 'v2';
+const CACHE_PREFIX = `yunqi_cache_${CACHE_VERSION}_`;
 const DEFAULT_TTL = 5 * 60 * 1000;
 
 interface CacheEntry<T> {
@@ -6,6 +7,26 @@ interface CacheEntry<T> {
   timestamp: number;
   ttl: number;
 }
+
+function checkCacheVersion() {
+  try {
+    const versionKey = 'yunqi_cache_version';
+    const currentVersion = localStorage.getItem(versionKey);
+    if (currentVersion !== CACHE_VERSION) {
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        if (k.startsWith('yunqi_cache_')) {
+          localStorage.removeItem(k);
+        }
+      });
+      localStorage.setItem(versionKey, CACHE_VERSION);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+checkCacheVersion();
 
 export function getCache<T>(key: string): T | null {
   try {
@@ -35,7 +56,6 @@ export function setCache<T>(key: string, data: T, ttl: number = DEFAULT_TTL): vo
     };
     localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(entry));
   } catch {
-    // 忽略存储错误（比如配额超限）
   }
 }
 

@@ -1,10 +1,10 @@
 import { memo, useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ChevronUp } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../stores/cartStore';
 import { formatPrice, cn } from '../lib/utils';
-import CartSheet from './CartSheet';
+import CartDrawer from './CartDrawer';
 
 interface CartSummary {
   count: number;
@@ -50,6 +50,50 @@ function FloatingCartComponent() {
     setPrevCount(summary.count);
   }, [summary.count, prevCount]);
 
+  const cartButton = (
+    <button
+      className={cn(
+        'relative flex items-center gap-2 pl-2 sm:pl-3 pr-3 sm:pr-4 py-2',
+        'transition-all duration-200 active:scale-95',
+        isEmpty ? 'cursor-default' : 'cursor-pointer'
+      )}
+      aria-label={isEmpty ? '购物车，空空如也' : `购物车，共 ${summary.count} 件商品`}
+    >
+      <div className="relative">
+        <div
+          className={cn(
+            'w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center',
+            'transition-all duration-300',
+            isEmpty
+              ? 'bg-gray-100'
+              : 'bg-gradient-to-br from-primary to-primary-light shadow-lg shadow-primary/30'
+          )}
+        >
+          <ShoppingBag
+            className={cn(
+              'h-5 w-5 transition-colors duration-300',
+              isEmpty ? 'text-gray-400' : 'text-white'
+            )}
+          />
+        </div>
+        {!isEmpty && (
+          <div className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shadow-lg shadow-red-500/30 animate-badge-pop">
+            {summary.count > 99 ? '99+' : summary.count}
+          </div>
+        )}
+      </div>
+
+      <div className="hidden sm:flex items-center gap-1">
+        <span className={cn(
+          'text-xs transition-colors duration-300',
+          isEmpty ? 'text-gray-400' : 'text-gray-500'
+        )}>
+          购物车
+        </span>
+      </div>
+    </button>
+  );
+
   const cartContent = (
     <div
       className={cn(
@@ -78,55 +122,7 @@ function FloatingCartComponent() {
             <div className="absolute -inset-1 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-60" />
           </div>
 
-          <CartSheet>
-            <button
-              className={cn(
-                'relative flex items-center gap-2 pl-2 sm:pl-3 pr-3 sm:pr-4 py-2',
-                'transition-all duration-200 active:scale-95',
-                isEmpty ? 'cursor-default' : 'cursor-pointer'
-              )}
-              aria-label={isEmpty ? '购物车，空空如也' : `购物车，共 ${summary.count} 件商品`}
-            >
-              <div className="relative">
-                <div
-                  className={cn(
-                    'w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center',
-                    'transition-all duration-300',
-                    isEmpty
-                      ? 'bg-gray-100'
-                      : 'bg-gradient-to-br from-primary to-primary-light shadow-lg shadow-primary/30'
-                  )}
-                >
-                  <ShoppingBag
-                    className={cn(
-                      'h-5 w-5 transition-colors duration-300',
-                      isEmpty ? 'text-gray-400' : 'text-white'
-                    )}
-                  />
-                </div>
-                {!isEmpty && (
-                  <div className="absolute -top-1 -right-1 min-w-[20px] h-5 flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shadow-lg shadow-red-500/30 animate-badge-pop">
-                    {summary.count > 99 ? '99+' : summary.count}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className={cn(
-                  'text-xs transition-colors duration-300',
-                  isEmpty ? 'text-gray-400' : 'text-gray-500'
-                )}>
-                  购物车
-                </span>
-                <ChevronUp
-                  className={cn(
-                    'h-4 w-4 transition-all duration-300',
-                    isEmpty ? 'text-gray-300' : 'text-gray-400'
-                  )}
-                />
-              </div>
-            </button>
-          </CartSheet>
+          <CartDrawer trigger={cartButton} isEmpty={isEmpty} />
 
           <div className="w-px h-8 bg-gray-100 mx-1" />
 

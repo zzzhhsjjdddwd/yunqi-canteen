@@ -182,6 +182,20 @@ export const financeAPI = {
   getTransaction: (id: string) =>
     request<Transaction>(`/api/admin/finance/transactions/${id}`),
 
+  deleteTransaction: (id: string) =>
+    request<{ message: string }>(`/api/admin/finance/transactions/${id}`, {
+      method: 'DELETE',
+    }),
+
+  exportTransactions: (params?: any) => {
+    const sp = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== '' && v !== 'all') sp.set(k, String(v));
+    });
+    const q = sp.toString();
+    return `${API_BASE}/api/admin/finance/transactions/export/csv${q ? `?${q}` : ''}`;
+  },
+
   getCategories: (type?: string) => {
     const q = type ? `?type=${type}` : '';
     return request<FinanceCategory[]>(`/api/admin/finance/categories${q}`);
@@ -229,9 +243,19 @@ export const financeAPI = {
       body: JSON.stringify({ status, operator }),
     }),
 
+  deleteInvoice: (id: string) =>
+    request<{ message: string }>(`/api/admin/finance/invoices/${id}`, {
+      method: 'DELETE',
+    }),
+
   getMonthlyReport: (year?: number) => {
     const q = year ? `?year=${year}` : '';
     return request<MonthlyReport>(`/api/admin/finance/report/monthly${q}`);
+  },
+
+  exportMonthlyReport: (year?: number) => {
+    const q = year ? `?year=${year}` : '';
+    return `${API_BASE}/api/admin/finance/report/monthly/export/csv${q}`;
   },
 
   // 智能财务分析

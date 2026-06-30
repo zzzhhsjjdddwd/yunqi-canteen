@@ -22,6 +22,11 @@ const FinanceReportPage = () => {
     }
   };
 
+  const handleExport = () => {
+    const url = financeAPI.exportMonthlyReport(selectedYear);
+    window.open(url, '_blank');
+  };
+
   const maxIncome = useMemo(() => {
     if (!report?.months) return 100;
     return Math.max(...report.months.map((m: any) => Math.max(m.income, m.expense)), 100);
@@ -65,7 +70,10 @@ const FinanceReportPage = () => {
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
-          <button className="px-4 py-2 rounded-xl border border-white/50 bg-white/60 text-sm flex items-center gap-2 hover:bg-white/80">
+          <button 
+            onClick={handleExport}
+            className="px-4 py-2 rounded-xl border border-white/50 bg-white/60 text-sm flex items-center gap-2 hover:bg-white/80 transition-colors active:scale-95"
+          >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />

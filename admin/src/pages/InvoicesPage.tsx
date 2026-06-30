@@ -87,6 +87,18 @@ const InvoicesPage = () => {
     }
   };
 
+  const handleDeleteInvoice = async (id: string) => {
+    if (!confirm('确定要删除这个账单吗？删除后无法恢复。')) return;
+    try {
+      await financeAPI.deleteInvoice(id);
+      loadInvoices();
+      if (selectedInvoice?.id === id) setSelectedInvoice(null);
+    } catch (error) {
+      console.error('Delete invoice error:', error);
+      alert('删除失败，请重试');
+    }
+  };
+
   const getTypeLabel = (type: string) => {
     const map: Record<string, string> = { sale: '销售账单', expense: '支出账单', refund: '退款账单' };
     return map[type] || type;
@@ -266,6 +278,12 @@ const InvoicesPage = () => {
                               退款
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            className="text-xs text-destructive hover:underline"
+                          >
+                            删除
+                          </button>
                         </div>
                       </td>
                     </tr>

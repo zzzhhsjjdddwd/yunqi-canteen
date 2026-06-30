@@ -88,6 +88,29 @@ const TransactionsPage = () => {
     }
   };
 
+  const handleDeleteTransaction = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('确定要删除这条交易记录吗？删除后无法恢复。')) return;
+    try {
+      await financeAPI.deleteTransaction(id);
+      loadTransactions();
+      if (selectedTx?.id === id) setSelectedTx(null);
+    } catch (error) {
+      console.error('Delete transaction error:', error);
+      alert('删除失败，请重试');
+    }
+  };
+
+  const handleExport = () => {
+    const params: any = {};
+    if (typeFilter !== 'all') params.type = typeFilter;
+    if (categoryFilter !== 'all') params.category = categoryFilter;
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (search) params.search = search;
+    const url = financeAPI.exportTransactions(params);
+    window.open(url, '_blank');
+  };
+
   const filteredCategories = categories.filter(c => c.type === newTx.type);
 
   const getTypeLabel = (type: string) => {
@@ -124,15 +147,28 @@ const TransactionsPage = () => {
           <h1 className="text-2xl font-bold gradient-text-gold">收支明细</h1>
           <p className="text-sm text-muted-foreground mt-1">共 {total} 条记录</p>
         </div>
-        <button
-          onClick={() => setShowAddDialog(true)}
-          className="px-5 py-2.5 rounded-xl glass-button text-sm font-medium flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          新增记录
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2.5 rounded-xl border border-white/50 bg-white/60 text-sm font-medium flex items-center gap-2 hover:bg-white/80 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+            导出
+          </button>
+          <button
+            onClick={() => setShowAddDialog(true)}
+            className="px-5 py-2.5 rounded-xl glass-button text-sm font-medium flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            新增记录
+          </button>
+        </div>
       </div>
 
       {/* 筛选栏 */}
@@ -218,6 +254,7 @@ const TransactionsPage = () => {
                     <th className="text-right py-3 px-5 text-sm font-medium text-muted-foreground">余额</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">状态</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">时间</th>
+                    <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -259,6 +296,16 @@ const TransactionsPage = () => {
                       </td>
                       <td className="py-4 px-5 text-sm text-muted-foreground">
                         {formatDateTime(tx.createdAt)}
+                      </td>
+                      <td className="py-4 px-5">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => handleDeleteTransaction(tx.id, e)}
+                            className="text-xs text-destructive hover:underline transition-colors"
+                          >
+                            删除
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

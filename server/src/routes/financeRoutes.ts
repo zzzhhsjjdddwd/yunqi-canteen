@@ -283,6 +283,29 @@ router.get('/transactions/:id', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// 删除交易记录
+// ============================================
+router.delete('/transactions/:id', async (req: Request, res: Response) => {
+  try {
+    const tx = await prisma.transaction.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!tx) {
+      return res.status(404).json({ error: '交易记录不存在' });
+    }
+    
+    await prisma.transaction.delete({
+      where: { id: req.params.id },
+    });
+    
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    console.error('Delete transaction error:', error);
+    res.status(500).json({ error: '删除交易记录失败' });
+  }
+});
+
+// ============================================
 // 财务分类
 // ============================================
 router.get('/categories', async (req: Request, res: Response) => {
@@ -581,6 +604,29 @@ router.patch('/invoices/:id/status', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// 删除账单
+// ============================================
+router.delete('/invoices/:id', async (req: Request, res: Response) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!invoice) {
+      return res.status(404).json({ error: '账单不存在' });
+    }
+    
+    await prisma.invoice.delete({
+      where: { id: req.params.id },
+    });
+    
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    console.error('Delete invoice error:', error);
+    res.status(500).json({ error: '删除账单失败' });
+  }
+});
+
+// ============================================
 // 财务报表（月度对比）
 // ============================================
 router.get('/report/monthly', async (req: Request, res: Response) => {
@@ -659,6 +705,185 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Monthly report error:', error);
     res.status(500).json({ error: '获取月度报表失败' });
+  }
+});
+
+// ============================================
+// 导出交易记录 CSV
+// ============================================
+router.get('/transactions/export/csv', async (req: Request, res: Response) => {
+  try {
+    const {
+      type,
+      category,
+      status,
+      startDate,
+      endDate,
+      search,
+    } = req.query as any;
+
+    const where: any = {};
+    if (type && type !== 'all') where.type = type;
+    if (category && category !== 'all') where.category = category;
+    if (status && status !== 'all') where.status = status;
+    if (startDate) where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
+    if (endDate) where.createdAt = { ...where.createdAt, lte: new Date(endDate + 'T23:59:59') };
+    if (search) {
+      where.OR = [
+        { description: { contains: search } },
+        { remark: { contains: search } },
+        { referenceNo: { contains: search } },
+      ];
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: { order: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const headers = [
+      '流水号', '类型', '分类', '金额', '余额', '状态',
+      '描述', '备注', '支付方式', '操作人', '关联订单号', '创建时间'
+    ];
+
+    const rows = transactions.map(tx => [
+      tx.referenceNo || '',
+      tx.type === 'income' ? '收入' : '支出',
+      tx.category || '',
+      (tx.amount / 100).toFixed(2),
+      (tx.balanceAfter / 100).toFixed(2),
+      tx.status === 'completed' ? '已完成' : tx.status === 'pending' ? '待处理' : '失败',
+      tx.description || '',
+      tx.remark || '',
+      tx.paymentMethod || '',
+      tx.operator || '',
+      tx.order?.orderNo || '',
+      new Date(tx.createdAt).toLocaleString('zh-CN'),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const filename = `交易明细_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', Buffer.byteLength('\uFEFF' + csvContent, 'utf8'));
+    
+    res.write('\uFEFF');
+    res.write(csvContent);
+    res.end();
+  } catch (error) {
+    console.error('Export transactions error:', error);
+    res.status(500).json({ error: '导出失败' });
+  }
+});
+
+// ============================================
+// 导出月度报表 CSV
+// ============================================
+router.get('/report/monthly/export/csv', async (req: Request, res: Response) => {
+  try {
+    const { year } = req.query as any;
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+
+    const months: any[] = [];
+
+    for (let m = 0; m < 12; m++) {
+      const monthStart = new Date(targetYear, m, 1);
+      const monthEnd = new Date(targetYear, m + 1, 0, 23, 59, 59);
+
+      const [income, expense, orderCount, orderTotal] = await Promise.all([
+        prisma.transaction.aggregate({
+          where: { type: 'income', status: 'completed', createdAt: { gte: monthStart, lte: monthEnd } },
+          _sum: { amount: true },
+        }),
+        prisma.transaction.aggregate({
+          where: { type: 'expense', status: 'completed', createdAt: { gte: monthStart, lte: monthEnd } },
+          _sum: { amount: true },
+        }),
+        prisma.order.count({
+          where: {
+            createdAt: { gte: monthStart, lte: monthEnd },
+            paymentStatus: 'paid',
+            deletedByUser: false,
+          },
+        }),
+        prisma.order.aggregate({
+          where: {
+            createdAt: { gte: monthStart, lte: monthEnd },
+            paymentStatus: 'paid',
+            deletedByUser: false,
+          },
+          _sum: { total: true },
+        }),
+      ]);
+
+      const incomeAmt = income._sum.amount || 0;
+      const expenseAmt = expense._sum.amount || 0;
+      const profit = incomeAmt - expenseAmt;
+      const orderTotalAmt = orderTotal._sum.total || 0;
+
+      months.push({
+        month: m + 1,
+        income: incomeAmt,
+        expense: expenseAmt,
+        profit,
+        profitRate: incomeAmt > 0 ? Math.round((profit / incomeAmt) * 1000) / 10 : 0,
+        orderCount,
+        avgOrderPrice: orderCount > 0 ? Math.round(orderTotalAmt / orderCount) : 0,
+      });
+    }
+
+    const totalIncome = months.reduce((s, m) => s + m.income, 0);
+    const totalExpense = months.reduce((s, m) => s + m.expense, 0);
+    const totalProfit = totalIncome - totalExpense;
+    const totalOrders = months.reduce((s, m) => s + m.orderCount, 0);
+
+    const headers = ['月份', '营收', '支出', '净利润', '利润率', '订单数', '客单价'];
+
+    const rows = months.map(m => [
+      `${m.month}月`,
+      (m.income / 100).toFixed(2),
+      (m.expense / 100).toFixed(2),
+      (m.profit / 100).toFixed(2),
+      `${m.profitRate}%`,
+      m.orderCount,
+      (m.avgOrderPrice / 100).toFixed(2),
+    ]);
+
+    rows.push([
+      '合计',
+      (totalIncome / 100).toFixed(2),
+      (totalExpense / 100).toFixed(2),
+      (totalProfit / 100).toFixed(2),
+      `${totalIncome > 0 ? ((totalProfit / totalIncome) * 100).toFixed(1) : 0}%`,
+      totalOrders,
+      totalOrders > 0 ? ((totalIncome / 100) / totalOrders).toFixed(2) : '0.00',
+    ]);
+
+    const csvContent = [
+      `${targetYear}年度财务报表`,
+      '',
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const filename = `${targetYear}年度财务报表.csv`;
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', Buffer.byteLength('\uFEFF' + csvContent, 'utf8'));
+    
+    res.write('\uFEFF');
+    res.write(csvContent);
+    res.end();
+  } catch (error) {
+    console.error('Export monthly report error:', error);
+    res.status(500).json({ error: '导出失败' });
   }
 });
 
