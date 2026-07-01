@@ -77,7 +77,7 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 gradient-text">
             <CreditCard className="h-5 w-5 text-primary" />
-            扫码支付
+            {status === 'success' ? '支付成功' : status === 'failed' ? '支付失败' : '扫码支付'}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             订单号：<span className="font-medium">{orderNo}</span>
@@ -129,8 +129,8 @@ export default function PaymentModal({ open, onClose, orderId, orderNo }: Paymen
                 <CheckCircle className="h-10 w-10 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold gradient-text">订单提交成功</h3>
-                <p className="mt-2 text-sm text-muted-foreground">感谢您的支持，请扫码支付</p>
+                <h3 className="text-xl font-bold gradient-text">支付成功</h3>
+                <p className="mt-2 text-sm text-muted-foreground">支付成功，感谢您的支持</p>
               </div>
               <div className="flex gap-3 w-full">
                 <Button onClick={() => {

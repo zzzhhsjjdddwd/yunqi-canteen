@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { financeAPI, formatPrice, formatDateTime } from '../api/finance';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 
 const InvoicesPage = () => {
   const [loading, setLoading] = useState(true);
@@ -12,6 +14,8 @@ const InvoicesPage = () => {
   const [search, setSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const [newInvoice, setNewInvoice] = useState({
     type: 'sale',
@@ -55,7 +59,7 @@ const InvoicesPage = () => {
 
   const handleSubmit = async () => {
     if (!newInvoice.amount || parseFloat(newInvoice.amount) <= 0) {
-      alert('请填写正确的金额');
+      showToast('请填写正确的金额');
       return;
     }
     setSubmitting(true);
@@ -69,33 +73,34 @@ const InvoicesPage = () => {
       loadInvoices();
     } catch (error) {
       console.error('Create invoice error:', error);
-      alert('创建失败，请重试');
+      showToast('创建失败，请重试');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleUpdateStatus = async (id: string, status: string) => {
-    if (!confirm(`确定要${status === 'paid' ? '标记为已支付' : status === 'cancelled' ? '取消' : '退款'}此账单吗？`)) return;
+    if (!await confirm(`确定要${status === 'paid' ? '标记为已支付' : status === 'cancelled' ? '取消' : '退款'}此账单吗？`)) return;
     try {
       await financeAPI.updateInvoiceStatus(id, status, 'admin');
       loadInvoices();
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
     } catch (error) {
       console.error('Update invoice error:', error);
-      alert('操作失败，请重试');
+      showToast('操作失败，请重试');
     }
   };
 
   const handleDeleteInvoice = async (id: string) => {
-    if (!confirm('确定要删除这个账单吗？删除后无法恢复。')) return;
+    if (!await confirm('确定要删除这个账单吗？删除后无法恢复。')) return;
     try {
       await financeAPI.deleteInvoice(id);
       loadInvoices();
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete invoice error:', error);
-      alert('删除失败，请重试');
+      const msg = error?.response?.data?.error || '删除失败，请重试';
+      showToast(msg);
     }
   };
 
@@ -123,6 +128,7 @@ const InvoicesPage = () => {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialogComponent}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold gradient-text-gold">账单管理</h1>
@@ -278,12 +284,14 @@ const InvoicesPage = () => {
                               退款
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteInvoice(inv.id)}
-                            className="text-xs text-destructive hover:underline"
-                          >
-                            删除
-                          </button>
+                          {(inv.status === 'unpaid' || inv.status === 'cancelled') && (
+                            <button
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              className="text-xs text-destructive hover:underline"
+                            >
+                              删除
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

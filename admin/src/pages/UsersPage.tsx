@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, User, MapPin, ShoppingBag, Trash2, Eye, ChevronLeft, ChevronRight, Loader2, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { AdminUsersPageSkeleton, EmptyState } from '../components/Loading';
 import { getUsers, getUserDetail, deleteUser } from '../lib/api';
 import { formatDate, formatPrice } from '../lib/utils';
@@ -28,11 +30,15 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
     fetchUsers();
@@ -55,8 +61,27 @@ export default function UsersPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchUsers();
+    setSearch(searchInput);
   };
+
+  const handleSearchInputChange = useCallback((value: string) => {
+    setSearchInput(value);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setSearch(value);
+      setPage(1);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const handleViewUser = async (userId: string) => {
     setUserDetailLoading(true);
@@ -65,21 +90,21 @@ export default function UsersPage() {
       setSelectedUser(data);
     } catch (error) {
       console.error('Failed to fetch user detail:', error);
-      alert('获取用户详情失败');
+      showToast('获取用户详情失败');
     } finally {
       setUserDetailLoading(false);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('确定要删除这个用户吗？该操作不可恢复。')) return;
+    if (!await confirm('确定要删除这个用户吗？该操作不可恢复。')) return;
     try {
       await deleteUser(userId);
       fetchUsers();
       setSelectedUser(null);
     } catch (error) {
       console.error('Failed to delete user:', error);
-      alert('删除用户失败');
+      showToast('删除用户失败');
     }
   };
 
@@ -89,6 +114,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialogComponent}
       <div className="flex items-center gap-4 stagger-fade-in" style={{ animationDelay: '0ms' }}>
         <button onClick={() => navigate('/')} className="glass-card p-2 active:scale-95 transition-transform">
           <ArrowLeft className="h-5 w-5" />
@@ -106,8 +132,8 @@ export default function UsersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="搜索手机号或昵称..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
               className="pl-10"
             />
           </div>

@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import Layout from './components/Layout';
 import Loading from './components/Loading';
 import NewOrderToast from './components/NewOrderToast';
+import { ToastProvider } from './components/ui/Toast';
 import { useAdminStore } from './stores/adminStore';
 import { useOrderStore } from './stores/orderStore';
 import { joinAdminRoom, onNewOrder, onOrderCancelled, getSocket } from './lib/socket';
@@ -189,46 +190,50 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <Suspense fallback={<Loading />}>
-        <AnimatedOutlet>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </AnimatedOutlet>
-      </Suspense>
+      <ToastProvider>
+        <Suspense fallback={<Loading />}>
+          <AnimatedOutlet>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </AnimatedOutlet>
+        </Suspense>
+      </ToastProvider>
     );
   }
 
   return (
-    <>
-      <Suspense fallback={<Loading />}>
-        <AnimatedOutlet>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="finance" element={<FinanceDashboardPage />} />
-              <Route path="finance/transactions" element={<TransactionsPage />} />
-              <Route path="finance/report" element={<FinanceReportPage />} />
-              <Route path="finance/invoices" element={<InvoicesPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
-        </AnimatedOutlet>
-      </Suspense>
+    <ToastProvider>
+      <>
+        <Suspense fallback={<Loading />}>
+          <AnimatedOutlet>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="orders" element={<OrdersPage />} />
+                <Route path="products" element={<ProductsPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="finance" element={<FinanceDashboardPage />} />
+                <Route path="finance/transactions" element={<TransactionsPage />} />
+                <Route path="finance/report" element={<FinanceReportPage />} />
+                <Route path="finance/invoices" element={<InvoicesPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </AnimatedOutlet>
+        </Suspense>
 
-      {newOrders.map((order) => (
-        <NewOrderToast
-          key={order.orderId}
-          order={order}
-          onClose={() => removeToast(order.orderId)}
-        />
-      ))}
-    </>
+        {newOrders.map((order) => (
+          <NewOrderToast
+            key={order.orderId}
+            order={order}
+            onClose={() => removeToast(order.orderId)}
+          />
+        ))}
+      </>
+    </ToastProvider>
   );
 }
 

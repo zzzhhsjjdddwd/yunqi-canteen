@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/Toast';
 import { getOrders, cancelOrder, deleteOrder } from '../lib/api';
 import { formatPrice, formatDate } from '../lib/utils';
 import { useOrderStore } from '../stores/orderStore';
@@ -24,6 +25,7 @@ export default function OrdersPage() {
   const orders = useOrderStore((state) => state.orders);
   const setOrders = useOrderStore((state) => state.setOrders);
   const updateOrderStatus = useOrderStore((state) => state.updateOrderStatus);
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function OrdersPage() {
       }
     } catch (error) {
       console.error('Failed to delete order:', error);
-      alert('删除订单失败，请重试');
+      showToast('删除订单失败，请重试');
     }
   };
 
@@ -300,6 +302,7 @@ function OrderCard({ order, onDelete }: { order: Order; onDelete: (id: string) =
 
 function OrderDetail({ order, onDelete }: { order: Order; onDelete: (id: string) => void }) {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [showPayment, setShowPayment] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -317,7 +320,7 @@ function OrderDetail({ order, onDelete }: { order: Order; onDelete: (id: string)
       navigate('/menu/orders');
     } catch (error) {
       console.error('Failed to cancel order:', error);
-      alert('取消订单失败，请重试');
+      showToast('取消订单失败，请重试');
     } finally {
       setCancelling(false);
       setShowCancelDialog(false);

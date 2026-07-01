@@ -3,11 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Check, MapPin } from 'lucide-react';
 import { useAddressStore } from '../stores/addressStore';
 import { getAddresses, deleteAddress, setDefaultAddress } from '../lib/api';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import type { Address } from '../../../shared/types';
 
 export default function AddressesPage() {
   const navigate = useNavigate();
   const { addresses, setAddresses, removeAddress, updateAddress } = useAddressStore();
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -27,13 +31,13 @@ export default function AddressesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这个地址吗？')) return;
+    if (!await confirm('确定要删除这个地址吗？')) return;
     try {
       await deleteAddress(id);
       removeAddress(id);
     } catch (err) {
       console.error('Failed to delete address:', err);
-      alert('删除失败');
+      showToast('删除失败');
     }
   };
 
@@ -50,6 +54,7 @@ export default function AddressesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-purple-50/30 to-blue-50/20 pb-20">
+      {ConfirmDialogComponent}
       <header className="glass-card sticky top-0 z-10 px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

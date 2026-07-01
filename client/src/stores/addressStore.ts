@@ -10,6 +10,7 @@ interface AddressState {
   updateAddress: (address: Address) => void;
   removeAddress: (id: string) => void;
   setSelectedAddress: (id: string | null) => void;
+  clearAddresses: () => void;
 }
 
 export const useAddressStore = create<AddressState>()(
@@ -36,6 +37,8 @@ export const useAddressStore = create<AddressState>()(
       })),
 
       setSelectedAddress: (id) => set({ selectedAddressId: id }),
+
+      clearAddresses: () => set({ addresses: [], selectedAddressId: null }),
     }),
     {
       name: 'address-storage',

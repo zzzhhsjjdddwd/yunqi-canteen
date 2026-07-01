@@ -46,10 +46,10 @@ export default function DashboardPage() {
     try {
       const [statsData, ordersData] = await Promise.all([
         getStats(),
-        getOrders({ limit: 5 }),
+        getOrders({ pageSize: 5 }),
       ]);
       setStats(statsData);
-      setRecentOrders(ordersData);
+      setRecentOrders(ordersData.orders);
       setError('');
     } catch (err) {
       setError('加载数据失败，请刷新重试');

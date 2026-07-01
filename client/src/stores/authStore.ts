@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '../../../shared/types';
+import { useCartStore } from './cartStore';
+import { useOrderStore } from './orderStore';
+import { useAddressStore } from './addressStore';
 
 interface AuthState {
   user: User | null;
@@ -24,11 +27,16 @@ export const useAuthStore = create<AuthState>()(
         isLoggedIn: true,
       }),
 
-      logout: () => set({
-        user: null,
-        token: null,
-        isLoggedIn: false,
-      }),
+      logout: () => {
+        set({
+          user: null,
+          token: null,
+          isLoggedIn: false,
+        });
+        useCartStore.getState().clearCart();
+        useOrderStore.getState().clearOrders();
+        useAddressStore.getState().clearAddresses();
+      },
 
       updateUser: (updates) => set((state) => ({
         user: state.user ? { ...state.user, ...updates } : null,

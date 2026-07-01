@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { financeAPI, formatPrice, formatDateTime } from '../api/finance';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 
 const TransactionsPage = () => {
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,8 @@ const TransactionsPage = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedTx, setSelectedTx] = useState<any>(null);
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const [newTx, setNewTx] = useState({
     type: 'income',
@@ -68,7 +72,7 @@ const TransactionsPage = () => {
 
   const handleSubmit = async () => {
     if (!newTx.category || !newTx.amount) {
-      alert('请填写完整信息');
+      showToast('请填写完整信息');
       return;
     }
     setSubmitting(true);
@@ -82,7 +86,7 @@ const TransactionsPage = () => {
       loadTransactions();
     } catch (error) {
       console.error('Create transaction error:', error);
-      alert('创建失败，请重试');
+      showToast('创建失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -90,15 +94,23 @@ const TransactionsPage = () => {
 
   const handleDeleteTransaction = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('确定要删除这条交易记录吗？删除后无法恢复。')) return;
+    if (!await confirm('确定要删除这条交易记录吗？删除后无法恢复。')) return;
     try {
       await financeAPI.deleteTransaction(id);
       loadTransactions();
       if (selectedTx?.id === id) setSelectedTx(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete transaction error:', error);
-      alert('删除失败，请重试');
+      const msg = error?.response?.data?.error || '删除失败，请重试';
+      showToast(msg);
     }
+  };
+
+  const isTransactionDeletable = (tx: any) => {
+    const now = new Date();
+    const created = new Date(tx.createdAt);
+    const hoursDiff = (now.getTime() - created.getTime()) / (1000 * 60 * 60);
+    return hoursDiff <= 24;
   };
 
   const handleExport = () => {
@@ -142,6 +154,7 @@ const TransactionsPage = () => {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialogComponent}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold gradient-text-gold">收支明细</h1>
@@ -299,12 +312,18 @@ const TransactionsPage = () => {
                       </td>
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => handleDeleteTransaction(tx.id, e)}
-                            className="text-xs text-destructive hover:underline transition-colors"
-                          >
-                            删除
-                          </button>
+                          {isTransactionDeletable(tx) ? (
+                            <button
+                              onClick={(e) => handleDeleteTransaction(tx.id, e)}
+                              className="text-xs text-destructive hover:underline transition-colors"
+                            >
+                              删除
+                            </button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/50 cursor-not-allowed" title="超过24小时的交易记录不可删除">
+                              删除
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

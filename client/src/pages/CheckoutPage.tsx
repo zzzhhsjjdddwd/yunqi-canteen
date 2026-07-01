@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/Toast';
 import type { Address } from '../../../shared/types';
 
 export default function CheckoutPage() {
@@ -24,11 +25,11 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((state) => state.clearCart);
   const addOrder = useOrderStore((state) => state.addOrder);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
-  const user = useAuthStore((state) => state.user);
   const addresses = useAddressStore((state) => state.addresses);
   const setAddresses = useAddressStore((state) => state.setAddresses);
   const selectedAddressId = useAddressStore((state) => state.selectedAddressId);
   const setSelectedAddress = useAddressStore((state) => state.setSelectedAddress);
+  const { showToast } = useToast();
   const [remark, setRemark] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAddressTip, setShowAddressTip] = useState(false);
@@ -68,13 +69,9 @@ export default function CheckoutPage() {
       const orderData = {
         items: items.map((item) => ({
           productId: item.product.id,
-          productName: item.product.name,
-          price: item.product.price,
           quantity: item.quantity,
         })),
-        total: getTotal(),
         remark: remark || undefined,
-        userId: user?.id,
         addressId: selectedAddressId,
       };
 
@@ -85,7 +82,7 @@ export default function CheckoutPage() {
       navigate('/menu/orders');
     } catch (error) {
       console.error('Failed to create order:', error);
-      alert('创建订单失败，请重试');
+      showToast('创建订单失败，请重试');
     } finally {
       setLoading(false);
     }

@@ -55,13 +55,12 @@ export function generateReceiptText(order: Order): string {
   return lines.join('\n');
 }
 
-export function printReceipt(order: Order) {
+export function printReceipt(order: Order): { success: boolean; error?: string } {
   const receiptText = generateReceiptText(order);
 
   const printWindow = window.open('', '_blank', 'width=300,height=600');
   if (!printWindow) {
-    alert('无法打开打印窗口，请检查浏览器设置');
-    return;
+    return { success: false, error: '无法打开打印窗口，请检查浏览器设置' };
   }
 
   printWindow.document.write(`
@@ -104,4 +103,6 @@ export function printReceipt(order: Order) {
     printWindow.print();
     printWindow.close();
   }, 250);
+
+  return { success: true };
 }

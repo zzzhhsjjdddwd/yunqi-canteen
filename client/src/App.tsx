@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Loading from './components/Loading';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ToastProvider } from './components/ui/Toast';
 
 const MenuPage = lazy(() => import('./pages/MenuPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
@@ -86,11 +87,13 @@ function AnimatedOutlet() {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<Loading />}>
-        <AnimatedOutlet />
-      </Suspense>
-    </ErrorBoundary>
+    <ToastProvider>
+      <ErrorBoundary>
+        <Suspense fallback={<Loading />}>
+          <AnimatedOutlet />
+        </Suspense>
+      </ErrorBoundary>
+    </ToastProvider>
   );
 }
 

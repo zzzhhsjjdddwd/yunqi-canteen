@@ -283,6 +283,16 @@ router.get('/transactions/:id', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// 审计日志
+// ============================================
+function auditLog(entry: { action: string; entityId: string; entityType: string; operator?: string }) {
+  console.log(JSON.stringify({
+    ...entry,
+    timestamp: new Date().toISOString(),
+  }));
+}
+
+// ============================================
 // 删除交易记录
 // ============================================
 router.delete('/transactions/:id', async (req: Request, res: Response) => {
@@ -293,11 +303,26 @@ router.delete('/transactions/:id', async (req: Request, res: Response) => {
     if (!tx) {
       return res.status(404).json({ error: '交易记录不存在' });
     }
-    
+
+    // 超过24小时的交易记录不可删除
+    const now = new Date();
+    const created = new Date(tx.createdAt);
+    const hoursDiff = (now.getTime() - created.getTime()) / (1000 * 60 * 60);
+    if (hoursDiff > 24) {
+      return res.status(403).json({ error: '超过24小时的交易记录不可删除' });
+    }
+
     await prisma.transaction.delete({
       where: { id: req.params.id },
     });
-    
+
+    auditLog({
+      action: 'DELETE_TRANSACTION',
+      entityId: req.params.id,
+      entityType: 'transaction',
+      operator: req.adminUsername,
+    });
+
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete transaction error:', error);
@@ -614,11 +639,23 @@ router.delete('/invoices/:id', async (req: Request, res: Response) => {
     if (!invoice) {
       return res.status(404).json({ error: '账单不存在' });
     }
-    
+
+    // 只有未支付或已取消状态的账单才可删除
+    if (invoice.status !== 'unpaid' && invoice.status !== 'cancelled') {
+      return res.status(403).json({ error: '只有未支付或已取消状态的账单才可删除' });
+    }
+
     await prisma.invoice.delete({
       where: { id: req.params.id },
     });
-    
+
+    auditLog({
+      action: 'DELETE_INVOICE',
+      entityId: req.params.id,
+      entityType: 'invoice',
+      operator: req.adminUsername,
+    });
+
     res.json({ message: '删除成功' });
   } catch (error) {
     console.error('Delete invoice error:', error);

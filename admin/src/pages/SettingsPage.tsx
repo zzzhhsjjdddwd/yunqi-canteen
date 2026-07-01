@@ -6,11 +6,13 @@ import { Switch } from '../components/ui/Switch';
 import { Slider } from '../components/ui/Slider';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/Toast';
 import { updateSpeakerSettings } from '../lib/api';
 import { useSpeaker } from '../hooks/useSpeaker';
 
 export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const { showToast } = useToast();
 
   const {
     notificationEnabled,
@@ -45,7 +47,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('保存失败，请重试');
+      showToast('保存失败，请重试');
     }
   };
 

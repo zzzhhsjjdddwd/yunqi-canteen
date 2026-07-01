@@ -10,6 +10,7 @@ import { upload } from './utils/upload.js';
 import { setupSocket } from './socket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authMiddleware, adminAuthMiddleware } from './middleware/auth.js';
+import { generalRateLimit, authRateLimit } from './middleware/rateLimit.js';
 
 // Load environment variables
 config();
@@ -127,9 +128,14 @@ import adminAuthRoutes from './routes/adminAuthRoutes.js';
 import adminUserRoutes from './routes/adminUserRoutes.js';
 import financeRoutes from './routes/financeRoutes.js';
 
-app.use('/api/auth', authRoutes);
+// Rate limiting - 通用 API 限制
+app.use('/api/', generalRateLimit);
+
+// Rate limiting - 认证接口更严格限制（在通用限制之上叠加）
+app.use('/api/auth', authRateLimit, authRoutes);
+app.use('/api/admin', authRateLimit, adminAuthRoutes);
+
 app.use('/api/addresses', addressRoutes);
-app.use('/api/admin', adminAuthRoutes);
 app.use('/api/admin', adminUserRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);

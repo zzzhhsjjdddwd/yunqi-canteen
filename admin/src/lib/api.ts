@@ -98,14 +98,32 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 // Orders
-export async function getOrders(params?: { status?: string; paymentStatus?: string; date?: string; limit?: number }): Promise<Order[]> {
+export interface PaginatedOrders {
+  orders: Order[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function getOrders(params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  paymentStatus?: string;
+  date?: string;
+  search?: string;
+  filter?: string;
+}): Promise<PaginatedOrders> {
   const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set('page', String(params.page));
+  if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
   if (params?.status) searchParams.set('status', params.status);
   if (params?.paymentStatus) searchParams.set('paymentStatus', params.paymentStatus);
   if (params?.date) searchParams.set('date', params.date);
-  if (params?.limit) searchParams.set('limit', String(params.limit));
+  if (params?.search) searchParams.set('search', params.search);
+  if (params?.filter) searchParams.set('filter', params.filter);
   const query = searchParams.toString();
-  return request<Order[]>(`/api/admin/orders${query ? `?${query}` : ''}`, {}, true);
+  return request<PaginatedOrders>(`/api/admin/orders${query ? `?${query}` : ''}`, {}, true);
 }
 
 export async function updateOrderStatus(id: string, status: string): Promise<Order> {

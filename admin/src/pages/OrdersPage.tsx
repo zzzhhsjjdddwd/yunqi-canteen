@@ -24,6 +24,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { AdminOrdersPageSkeleton, EmptyState } from '../components/Loading';
 import { getOrders, updateOrderStatus, confirmPayment, deleteOrder } from '../lib/api';
 import { onNewOrder, onOrderStatusUpdate, onOrderCancelled } from '../lib/socket';
@@ -36,13 +38,17 @@ const PAGE_SIZE = 20;
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filter, setFilter] = useState('all');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const { speakerEnabled, notifyNewOrder, notifyCancelled, notifyPaymentFailed } = useSpeaker();
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   const notifyNewOrderRef = useRef(notifyNewOrder);
   const notifyCancelledRef = useRef(notifyCancelled);
@@ -60,49 +66,65 @@ export default function OrdersPage() {
     notifyPaymentFailedRef.current = notifyPaymentFailed;
   }, [notifyPaymentFailed]);
 
-  // Fetch orders
+  // Debounce search input
   useEffect(() => {
-    let cancelled = false;
-    async function fetchOrders() {
-      setLoading(true);
-      try {
-        const data = await getOrders({ limit: 500 });
-        if (!cancelled) {
-          setOrders(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch orders:', error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch orders with server-side pagination
+  const fetchOrders = useCallback(async (currentPage: number, currentFilter: string, currentSearch: string) => {
+    setLoading(true);
+    try {
+      const data = await getOrders({
+        page: currentPage,
+        pageSize: PAGE_SIZE,
+        filter: currentFilter !== 'all' ? currentFilter : undefined,
+        search: currentSearch || undefined,
+      });
+      setOrders(data.orders);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    } finally {
+      setLoading(false);
     }
-    fetchOrders();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  // Re-fetch when page/filter/search changes
+  useEffect(() => {
+    fetchOrders(page, filter, debouncedSearch);
+  }, [page, filter, debouncedSearch, fetchOrders]);
+
+  // Reset page on filter / search change
+  useEffect(() => {
+    setPage(1);
+  }, [filter, debouncedSearch]);
 
   // WebSocket listeners (stable - memoized)
   const handleAddOrder = useCallback((data: any) => {
-    const newOrder: Order = {
-      id: data.orderId,
-      orderNo: data.orderNo,
-      items: data.items,
-      total: data.total,
-      status: 'pending',
-      paymentStatus: 'unpaid',
-      remark: data.remark,
-      address: data.address,
-      user: data.user,
-      createdAt: data.createdAt,
-      updatedAt: data.createdAt,
-    };
-    setOrders((prev) => [newOrder, ...prev]);
+    if (page === 1 && filter === 'all' && !debouncedSearch) {
+      const newOrder: Order = {
+        id: data.orderId,
+        orderNo: data.orderNo,
+        items: data.items,
+        total: data.total,
+        status: 'pending',
+        paymentStatus: 'unpaid',
+        remark: data.remark,
+        address: data.address,
+        user: data.user,
+        createdAt: data.createdAt,
+        updatedAt: data.createdAt,
+      };
+      setOrders((prev) => [newOrder, ...prev.slice(0, PAGE_SIZE - 1)]);
+    }
+    setTotal((prev) => prev + 1);
     if (speakerEnabled) {
       const itemCount = data.items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
       notifyNewOrderRef.current(data.orderNo, data.total, itemCount);
     }
-  }, [speakerEnabled]);
+  }, [speakerEnabled, page, filter, debouncedSearch]);
 
   const handleStatusUpdate = useCallback((data: any) => {
     setOrders((prev) =>
@@ -138,51 +160,7 @@ export default function OrdersPage() {
     };
   }, [handleAddOrder, handleStatusUpdate, handleOrderCancelled]);
 
-  // Filter + search + pagination - useMemo to avoid recomputation on every render
-  const filteredOrders = useMemo(() => {
-    const lower = search.toLowerCase().trim();
-    return orders.filter((order) => {
-      // Filter by status
-      let matchStatus = true;
-      if (filter === 'pending') {
-        matchStatus = order.paymentStatus === 'unpaid' && order.status === 'pending';
-      } else if (filter === 'paid') {
-        matchStatus = order.paymentStatus === 'paid';
-      } else if (filter === 'active') {
-        matchStatus = ['paid', 'making'].includes(order.status);
-      } else if (filter === 'completed') {
-        matchStatus = order.status === 'completed';
-      }
-
-      // Filter by search
-      let matchSearch = true;
-      if (lower) {
-        matchSearch = !!(
-          order.orderNo.toLowerCase().includes(lower) ||
-          order.remark?.toLowerCase().includes(lower) ||
-          order.user?.nickname?.toLowerCase().includes(lower) ||
-          order.user?.phone?.includes(lower) ||
-          order.address?.name?.toLowerCase().includes(lower) ||
-          order.address?.phone?.includes(lower) ||
-          order.address?.detail?.toLowerCase().includes(lower)
-        );
-      }
-
-      return matchStatus && matchSearch;
-    });
-  }, [orders, filter, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages - 1);
-  const pageOrders = useMemo(() => {
-    const start = currentPage * PAGE_SIZE;
-    return filteredOrders.slice(start, start + PAGE_SIZE);
-  }, [filteredOrders, currentPage]);
-
-  // Reset page on filter / search change
-  useEffect(() => {
-    setPage(0);
-  }, [filter, search]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Update selected order reference when list updates
   useEffect(() => {
@@ -195,55 +173,39 @@ export default function OrdersPage() {
   const handleConfirmPayment = async (orderId: string, success: boolean) => {
     try {
       await confirmPayment(orderId, success);
-      let orderNo = '';
-      setOrders((prev) =>
-        prev.map((o) => {
-          if (o.id === orderId) {
-            orderNo = o.orderNo;
-            return {
-              ...o,
-              paymentStatus: success ? 'paid' : 'failed',
-              status: success ? 'paid' : 'cancelled',
-              updatedAt: new Date().toISOString(),
-            } as Order;
-          }
-          return o;
-        })
-      );
-      if (!success && speakerEnabled && orderNo) {
-        notifyPaymentFailedRef.current(orderNo);
+      if (!success && speakerEnabled) {
+        const order = orders.find((o) => o.id === orderId);
+        if (order) notifyPaymentFailedRef.current(order.orderNo);
       }
+      fetchOrders(page, filter, debouncedSearch);
       setDialogOpen(false);
     } catch (error) {
       console.error('Failed to confirm payment:', error);
-      alert('操作失败，请重试');
+      showToast('操作失败，请重试');
     }
   };
 
   const handleUpdateStatus = async (orderId: string, status: string) => {
     try {
       await updateOrderStatus(orderId, status);
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId ? { ...o, status: status as Order['status'], updatedAt: new Date().toISOString() } : o
-        )
-      );
+      fetchOrders(page, filter, debouncedSearch);
       setDialogOpen(false);
     } catch (error) {
       console.error('Failed to update status:', error);
-      alert('操作失败，请重试');
+      showToast('操作失败，请重试');
     }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('确定要删除这个订单吗？删除后无法恢复。')) return;
+    if (!await confirm('确定要删除这个订单吗？删除后无法恢复。')) return;
     try {
       await deleteOrder(orderId);
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setTotal((prev) => Math.max(0, prev - 1));
+      fetchOrders(page, filter, debouncedSearch);
       setDialogOpen(false);
     } catch (error) {
       console.error('Failed to delete order:', error);
-      alert('删除失败，请重试');
+      showToast('删除失败，请重试');
     }
   };
 
@@ -269,9 +231,10 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialogComponent}
       <div className="stagger-fade-in" style={{ animationDelay: '0ms' }}>
         <h1 className="text-2xl font-bold gradient-text">订单管理</h1>
-        <p className="text-sm text-muted-foreground mt-1">管理所有客户订单 · 共 {filteredOrders.length} 条</p>
+        <p className="text-sm text-muted-foreground mt-1">管理所有客户订单 · 共 {total} 条</p>
       </div>
 
       {/* Search */}
@@ -279,7 +242,7 @@ export default function OrdersPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="搜索订单号、备注、用户、地址..."
+            placeholder="搜索订单号、用户手机号..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -289,25 +252,25 @@ export default function OrdersPage() {
 
       <Tabs value={filter} onValueChange={setFilter} className="stagger-fade-in" style={{ animationDelay: '120ms' }}>
         <TabsList className="bg-transparent gap-2 p-0 flex-wrap">
-          <TabsTrigger value="all" className="rounded-full active:scale-95 transition-transform">全部 ({orders.length})</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-full active:scale-95 transition-transform">全部</TabsTrigger>
           <TabsTrigger value="pending" className="rounded-full active:scale-95 transition-transform">待支付</TabsTrigger>
           <TabsTrigger value="active" className="rounded-full active:scale-95 transition-transform">进行中</TabsTrigger>
           <TabsTrigger value="completed" className="rounded-full active:scale-95 transition-transform">已完成</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {pageOrders.length === 0 ? (
+      {orders.length === 0 ? (
         <div className="stagger-fade-in" style={{ animationDelay: '180ms' }}>
           <EmptyState
             icon={Inbox}
             title="暂无订单"
-            description={search ? '没有匹配的订单，试试其他关键词' : '等待新订单到来'}
+            description={debouncedSearch ? '没有匹配的订单，试试其他关键词' : '等待新订单到来'}
           />
         </div>
       ) : (
         <>
           <div className="space-y-3">
-            {pageOrders.map((order, i) => (
+            {orders.map((order, i) => (
               <div key={order.id} className="stagger-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
                 <OrderCard
                   order={order}
@@ -315,7 +278,10 @@ export default function OrdersPage() {
                     setSelectedOrder(order);
                     setDialogOpen(true);
                   }}
-                  onPrint={() => printReceipt(order)}
+                  onPrint={() => {
+                    const result = printReceipt(order);
+                    if (!result.success) showToast(result.error || '打印失败');
+                  }}
                   getStatusBadge={getStatusBadge}
                 />
               </div>
@@ -326,14 +292,14 @@ export default function OrdersPage() {
           {totalPages > 1 && (
             <div className="glass-card p-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                第 {currentPage + 1} / {totalPages} 页 · 共 {filteredOrders.length} 条
+                第 {page} / {totalPages} 页 · 共 {total} 条
               </p>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
                   className="rounded-full active:scale-95 transition-transform"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -342,8 +308,8 @@ export default function OrdersPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage === totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
                   className="rounded-full active:scale-95 transition-transform"
                 >
                   下一页
@@ -496,7 +462,10 @@ export default function OrdersPage() {
 
                 <Button
                   variant="outline"
-                  onClick={() => printReceipt(selectedOrder)}
+                  onClick={() => {
+                    const result = printReceipt(selectedOrder);
+                    if (!result.success) showToast(result.error || '打印失败');
+                  }}
                   className="rounded-full active:scale-95 transition-transform"
                 >
                   <Printer className="mr-2 h-4 w-4" />

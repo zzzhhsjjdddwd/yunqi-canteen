@@ -41,10 +41,8 @@ export interface OrderItem {
   orderId: string;
   productId: string;
   productName: string;
-  productPrice: number;
-  productImage?: string;
-  quantity: number;
   price: number;
+  quantity: number;
   subtotal: number;
 }
 
@@ -86,10 +84,8 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
-  items: Array<{ productId: string; productName: string; price: number; quantity: number }>;
-  total: number;
+  items: Array<{ productId: string; quantity: number }>;
   remark?: string;
-  userId?: string;
   addressId?: string;
 }
 
@@ -158,8 +154,9 @@ export interface StatsData {
   todayOrders: number;
   todayRevenue: number;
   pendingOrders: number;
-  totalUsers: number;
   totalProducts: number;
-  weeklyRevenue: number[];
-  topProducts: Array<{ name: string; count: number; revenue: number }>;
+  totalUsers: number;
+  preparingOrders?: number;
+  completedOrders?: number;
+  cancelledOrders?: number;
 }

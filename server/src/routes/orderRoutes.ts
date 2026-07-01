@@ -170,37 +170,86 @@ router.patch("/:id/delete", optionalAuth, async (req: Request, res, next) => {
 router.get("/stats", authMiddleware, async (req, res) => {
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [totalOrders, todayOrders, todayRevenue, pendingOrders] = await Promise.all([
+    const [totalOrders, todayOrders, todayRevenue, pendingOrders, totalProducts, totalUsers, preparingOrders, completedOrders, cancelledOrders] = await Promise.all([
       prisma.order.count(),
       prisma.order.count({ where: { createdAt: { gte: today } } }),
       prisma.order.aggregate({ where: { createdAt: { gte: today }, paymentStatus: "paid" }, _sum: { total: true } }),
       prisma.order.count({ where: { paymentStatus: "unpaid" } }),
+      prisma.product.count({ where: { status: 'active' } }),
+      prisma.user.count(),
+      prisma.order.count({ where: { status: 'making' } }),
+      prisma.order.count({ where: { status: 'completed', createdAt: { gte: today } } }),
+      prisma.order.count({ where: { status: 'cancelled', createdAt: { gte: today } } }),
     ]);
-    res.json({ totalOrders, todayOrders, todayRevenue: todayRevenue._sum.total || 0, pendingOrders });
+    res.json({
+      totalOrders,
+      todayOrders,
+      todayRevenue: todayRevenue._sum.total || 0,
+      pendingOrders,
+      totalProducts,
+      totalUsers,
+      preparingOrders,
+      completedOrders,
+      cancelledOrders,
+    });
   } catch (error) {
     console.error("Get stats error:", error);
     res.status(500).json({ error: "获取统计数据失败" });
   }
 });
 
-// 获取管理端订单列表（含用户和地址信息）
+// 获取管理端订单列表（含用户和地址信息，服务端分页）
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { status, paymentStatus, date, limit = 100 } = req.query;
+    const { status, paymentStatus, date, search, filter, page = '1', pageSize = '20' } = req.query;
+    const pageNum = Math.max(1, Number(page) || 1);
+    const pageSizeNum = Math.min(100, Math.max(1, Number(pageSize) || 20));
+    const skip = (pageNum - 1) * pageSizeNum;
+
     const where: any = {};
-    if (status) where.status = status;
-    if (paymentStatus) where.paymentStatus = paymentStatus;
+
+    // 处理筛选预设
+    if (filter === 'pending') {
+      where.paymentStatus = 'unpaid';
+      where.status = 'pending';
+    } else if (filter === 'active') {
+      where.status = { in: ['paid', 'making'] };
+    } else if (filter === 'completed') {
+      where.status = 'completed';
+    } else {
+      // 单独的 status/paymentStatus 过滤
+      if (status) where.status = status;
+      if (paymentStatus) where.paymentStatus = paymentStatus;
+    }
+
     if (date) {
       const startDate = new Date(date as string);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
       where.createdAt = { gte: startDate, lt: endDate };
     }
-    const orders = await prisma.order.findMany({
-      where, include: { items: true, address: { select: { id: true, name: true, phone: true, province: true, city: true, district: true, detail: true } }, user: { select: { id: true, nickname: true, phone: true, avatar: true } } },
-      orderBy: { createdAt: "desc" }, take: Math.min(Number(limit), 500),
-    });
-    res.json(orders);
+
+    // 搜索：按订单号或用户手机号
+    if (search) {
+      const searchTerm = String(search).trim();
+      where.OR = [
+        { orderNo: { contains: searchTerm } },
+        { user: { phone: { contains: searchTerm } } },
+      ];
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: { items: true, address: { select: { id: true, name: true, phone: true, province: true, city: true, district: true, detail: true } }, user: { select: { id: true, nickname: true, phone: true, avatar: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSizeNum,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({ orders, total, page: pageNum, pageSize: pageSizeNum });
   } catch (error) {
     console.error("Get admin orders error:", error);
     res.status(500).json({ error: "获取订单列表失败" });

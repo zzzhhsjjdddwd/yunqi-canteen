@@ -19,6 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/Dialog';
+import { useToast } from '../components/ui/Toast';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { AdminProductsPageSkeleton, EmptyState } from '../components/Loading';
 import {
   getProducts,
@@ -44,6 +46,8 @@ export default function ProductsPage() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
 
   useEffect(() => {
     fetchData();
@@ -86,20 +90,20 @@ export default function ProductsPage() {
       setEditingProduct(null);
     } catch (error) {
       console.error('Failed to save product:', error);
-      alert('保存失败，请重试');
+      showToast('保存失败，请重试');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm('确定要删除这个商品吗？')) return;
+    if (!await confirm('确定要删除这个商品吗？')) return;
     try {
       await deleteProduct(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
     } catch (error) {
       console.error('Failed to delete product:', error);
-      alert('删除失败，请重试');
+      showToast('删除失败，请重试');
     }
   };
 
@@ -117,19 +121,19 @@ export default function ProductsPage() {
       setEditingCategory(null);
     } catch (error) {
       console.error('Failed to save category:', error);
-      alert('保存失败，请重试');
+      showToast('保存失败，请重试');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm('确定要删除这个分类吗？')) return;
+    if (!await confirm('确定要删除这个分类吗？')) return;
     try {
       await deleteCategory(id);
       setCategories((prev) => prev.filter((c) => c.id !== id));
     } catch (error: any) {
-      alert(error?.message || '删除失败，请重试');
+      showToast(error?.message || '删除失败，请重试');
     }
   };
 
@@ -139,6 +143,7 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
+      {ConfirmDialogComponent}
       <div className="flex items-center gap-4 stagger-fade-in" style={{ animationDelay: '0ms' }}>
         <button onClick={() => navigate('/')} className="glass-card p-2 active:scale-95 transition-transform">
           <ArrowLeft className="h-5 w-5" />

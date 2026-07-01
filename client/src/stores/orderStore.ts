@@ -9,6 +9,7 @@ interface OrderStore {
   addOrder: (order: Order) => void;
   updateOrderStatus: (orderId: string, status: string) => void;
   setCurrentOrder: (order: Order | null) => void;
+  clearOrders: () => void;
 }
 
 export const useOrderStore = create<OrderStore>()(
@@ -37,6 +38,8 @@ export const useOrderStore = create<OrderStore>()(
         })),
 
       setCurrentOrder: (order) => set({ currentOrder: order }),
+
+      clearOrders: () => set({ orders: [], currentOrder: null }),
     }),
     {
       name: 'order-storage',
