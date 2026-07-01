@@ -16,7 +16,7 @@ const AddressesPage = lazy(() => import('./pages/AddressesPage'));
 const AddressFormPage = lazy(() => import('./pages/AddressFormPage'));
 
 function PwaUpdateBanner() {
-  const { needRefresh } = usePwaUpdate();
+  const { needRefresh, isUpdating, refreshAndUpdate } = usePwaUpdate();
 
   if (!needRefresh) return null;
 
@@ -24,10 +24,11 @@ function PwaUpdateBanner() {
     <div className="fixed top-0 left-0 right-0 z-[10000] bg-primary text-white text-center py-2 text-sm shadow-lg">
       发现新版本，
       <button
-        onClick={() => window.location.reload()}
-        className="underline font-semibold ml-1 hover:text-white/90"
+        onClick={refreshAndUpdate}
+        disabled={isUpdating}
+        className="underline font-semibold ml-1 hover:text-white/90 disabled:opacity-50"
       >
-        点击刷新
+        {isUpdating ? '更新中...' : '点击刷新'}
       </button>
     </div>
   );

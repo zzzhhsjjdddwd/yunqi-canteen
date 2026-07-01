@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export function usePwaUpdate() {
   const [needRefresh, setNeedRefresh] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const refreshAttemptedRef = useRef(false);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -34,14 +36,6 @@ export function usePwaUpdate() {
 
       checkUpdate();
 
-      let controllerchangeTimer: number | null = null;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (controllerchangeTimer) window.clearTimeout(controllerchangeTimer);
-        controllerchangeTimer = window.setTimeout(() => {
-          window.location.reload();
-        }, 300);
-      });
-
       const handleOnline = () => {
         registration?.update();
       };
@@ -54,10 +48,30 @@ export function usePwaUpdate() {
       return () => {
         window.removeEventListener('online', handleOnline);
         window.clearInterval(interval);
-        if (controllerchangeTimer) window.clearTimeout(controllerchangeTimer);
       };
     }
   }, []);
 
-  return { needRefresh };
+  const refreshAndUpdate = () => {
+    if (isUpdating || refreshAttemptedRef.current) return;
+    setIsUpdating(true);
+    refreshAttemptedRef.current = true;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg?.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        setTimeout(() => {
+          window.location.reload();
+        }, 200);
+      }).catch(() => {
+        window.location.reload();
+      });
+    } else {
+      window.location.reload();
+    }
+  };
+
+  return { needRefresh, isUpdating, refreshAndUpdate };
 }
