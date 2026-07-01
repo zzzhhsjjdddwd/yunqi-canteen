@@ -4,9 +4,9 @@ import { prisma } from '../app.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getFullUrl } from '../utils/url.js';
+import { JWT_SECRET } from '../config/env.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 用户注册
 router.post('/register', async (req, res) => {

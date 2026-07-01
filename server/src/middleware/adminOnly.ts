@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/env.js';
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+export function adminOnlyMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {
@@ -17,16 +17,12 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       phone?: string;
     };
 
-    // 支持管理员 token 和用户 token
-    if (decoded.adminId) {
-      req.adminId = decoded.adminId;
-      req.adminUsername = decoded.username;
-    }
-    if (decoded.userId) {
-      req.userId = decoded.userId;
-      req.phone = decoded.phone;
+    if (!decoded.adminId) {
+      return res.status(403).json({ error: '无权限' });
     }
 
+    req.adminId = decoded.adminId;
+    req.adminUsername = decoded.username;
     next();
   } catch {
     return res.status(401).json({ error: 'Token无效或已过期' });

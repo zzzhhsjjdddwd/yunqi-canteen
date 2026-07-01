@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { app, httpServer } from './app.js';
 import { prisma } from './app.js';
 import bcrypt from 'bcryptjs';
+import { assertStartupEnv, IS_PROD } from './config/env.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,17 +26,24 @@ const PORT = process.env.PORT || 3001;
 
 async function seedDatabase() {
   console.log('Initializing database...');
-  
-  const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
-  await prisma.admin.upsert({
-    where: { username: 'admin' },
-    update: { password: hashedPassword },
-    create: {
-      username: 'admin',
-      password: hashedPassword,
-    },
-  });
-  console.log('Admin account ready');
+
+  const existingAdmin = await prisma.admin.findUnique({ where: { username: 'admin' } });
+  if (!existingAdmin) {
+    const password = process.env.ADMIN_PASSWORD;
+    if (!password) {
+      throw new Error('Missing required environment variable: ADMIN_PASSWORD (required to create initial admin account)');
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.admin.create({
+      data: {
+        username: 'admin',
+        password: hashedPassword,
+      },
+    });
+    console.log('Admin account created');
+  } else {
+    console.log('Admin account exists');
+  }
   
   await prisma.settings.upsert({
     where: { id: 'default' },
@@ -54,6 +62,10 @@ async function seedDatabase() {
   
   const existingCategories = await prisma.category.count();
   if (existingCategories === 0) {
+    if (IS_PROD && process.env.BOOTSTRAP_SAMPLE_DATA !== 'true') {
+      console.log('Skipping sample data bootstrap in production');
+      return;
+    }
     const drinks = await prisma.category.create({ data: { id: 'cat_drinks', name: '饮品', sortOrder: 1 } });
     const lightFood = await prisma.category.create({ data: { id: 'cat_lightfood', name: '轻食', sortOrder: 2 } });
     const snacks = await prisma.category.create({ data: { id: 'cat_snacks', name: '小食', sortOrder: 3 } });
@@ -75,6 +87,7 @@ async function seedDatabase() {
 
 async function main() {
   try {
+    assertStartupEnv();
     await prisma.$connect();
     console.log('Database connected successfully');
     

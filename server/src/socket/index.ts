@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/env.js';
 
 interface ClientSocket extends Socket {
   room?: string;
@@ -17,7 +18,7 @@ export function setupSocket(io: Server) {
       if (token) {
         const decoded = jwt.verify(
           token,
-          process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
+          JWT_SECRET
         ) as { adminId?: string; userId?: string };
         if (decoded.adminId) socket.adminId = decoded.adminId;
         if (decoded.userId) {

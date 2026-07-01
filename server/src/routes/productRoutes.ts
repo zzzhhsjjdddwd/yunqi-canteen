@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
-import { authMiddleware } from '../middleware/auth.js';
 import { getFullUrl } from '../utils/url.js';
+import { adminOnlyMiddleware } from '../middleware/adminOnly.js';
 
 const router = Router();
 
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // 创建商品 (需认证)
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', adminOnlyMiddleware, async (req, res) => {
   try {
     const { name, categoryId, price, description, image, status, sortOrder } = req.body;
     if (!name || !categoryId || !price) {
@@ -79,7 +79,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // 更新商品 (需认证)
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     const { name, categoryId, price, description, image, status, sortOrder } = req.body;
     const product = await prisma.product.update({
@@ -102,7 +102,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // 删除商品 (需认证)
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     await prisma.product.delete({
       where: { id: req.params.id },

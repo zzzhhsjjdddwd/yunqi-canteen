@@ -2,8 +2,8 @@
 import { Router } from 'express';
 import { prisma } from '../app.js';
 import { upload } from '../utils/upload.js';
-import { authMiddleware } from '../middleware/auth.js';
 import { getFullUrl } from '../utils/url.js';
+import { adminOnlyMiddleware } from '../middleware/adminOnly.js';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.get('/payment-qr', async (req, res) => {
 // ====== 管理端接口 (需认证) ======
 
 // 上传收款二维码
-router.post('/payment-qr', authMiddleware, upload.single('qr'), async (req, res) => {
+router.post('/payment-qr', adminOnlyMiddleware, upload.single('qr'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: '请选择要上传的图片' });
@@ -45,7 +45,7 @@ router.post('/payment-qr', authMiddleware, upload.single('qr'), async (req, res)
 });
 
 // 获取语音配置
-router.get('/speaker', authMiddleware, async (req, res) => {
+router.get('/speaker', adminOnlyMiddleware, async (req, res) => {
   try {
     const settings = await prisma.settings.findUnique({
       where: { id: 'default' },
@@ -65,7 +65,7 @@ router.get('/speaker', authMiddleware, async (req, res) => {
 });
 
 // 更新语音配置
-router.put('/speaker', authMiddleware, async (req, res) => {
+router.put('/speaker', adminOnlyMiddleware, async (req, res) => {
   try {
     const {
       notificationEnabled,

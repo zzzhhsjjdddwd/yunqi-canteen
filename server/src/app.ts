@@ -10,6 +10,8 @@ import { upload } from './utils/upload.js';
 import { setupSocket } from './socket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authMiddleware } from './middleware/auth.js';
+import { getCorsAllowedOrigins, NODE_ENV } from './config/env.js';
+import { adminOnlyMiddleware } from './middleware/adminOnly.js';
 
 // Load environment variables
 config();
@@ -20,7 +22,7 @@ const __dirname = path.dirname(__filename);
 export const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'file:./dev.db',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -28,31 +30,17 @@ export const prisma = new PrismaClient({
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration - supports multiple origins for production
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  // Production origins from env (comma-separated)
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
-];
+const allowedOrigins = getCorsAllowedOrigins();
 
 export const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl)
-      if (!origin || process.env.NODE_ENV === 'development') {
+      if (!origin || NODE_ENV === 'development') {
         callback(null, true);
         return;
       }
-      // Allow any vercel.app domain, any custom domain
-      if (
-        origin.endsWith('.vercel.app') ||
-        origin.endsWith('.onrender.com') ||
-        origin.startsWith('https://') ||
-        allowedOrigins.includes(origin)
-      ) {
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -69,16 +57,11 @@ export const io = new Server(httpServer, {
 // CORS middleware for Express
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || process.env.NODE_ENV === 'development') {
+    if (!origin || NODE_ENV === 'development') {
       callback(null, true);
       return;
     }
-    if (
-      origin.endsWith('.vercel.app') ||
-      origin.endsWith('.onrender.com') ||
-      origin.startsWith('https://') ||
-      allowedOrigins.includes(origin)
-    ) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -133,11 +116,11 @@ app.use('/api/admin', adminUserRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/admin/orders', authMiddleware, orderRoutes);
+app.use('/api/admin/orders', adminOnlyMiddleware, orderRoutes);
 app.use('/api/admin/products', productRoutes);
 app.use('/api/admin/categories', categoryRoutes);
 app.use('/api/admin/settings', settingsRoutes);
-app.use('/api/admin/finance', authMiddleware, financeRoutes);
+app.use('/api/admin/finance', adminOnlyMiddleware, financeRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // Socket setup

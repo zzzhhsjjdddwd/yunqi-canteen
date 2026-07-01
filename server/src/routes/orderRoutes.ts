@@ -1,9 +1,10 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma, io } from "../app.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { adminOnlyMiddleware } from "../middleware/adminOnly.js";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import { JWT_SECRET } from "../config/env.js";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
+      JWT_SECRET
     ) as { adminId?: string; username?: string; userId?: string; phone?: string };
     if (decoded.adminId) {
       req.adminId = decoded.adminId;
@@ -130,7 +131,7 @@ router.patch("/:id/delete", optionalAuth, async (req: Request, res, next) => {
 // ====== 管理端接口 (需认证) ======
 
 // 获取统计数据
-router.get("/stats", authMiddleware, async (req, res) => {
+router.get("/stats", adminOnlyMiddleware, async (req, res) => {
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [totalOrders, todayOrders, todayRevenue, pendingOrders] = await Promise.all([
@@ -147,7 +148,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
 });
 
 // 获取管理端订单列表（含用户和地址信息）
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", adminOnlyMiddleware, async (req, res) => {
   try {
     const { status, paymentStatus, date, limit = 100 } = req.query;
     const where: any = {};
@@ -226,7 +227,7 @@ async function createTransaction(prisma, data) {
 }
 
 // 标记订单已支付（管理端）
-router.patch("/:id/pay", authMiddleware, async (req, res) => {
+router.patch("/:id/pay", adminOnlyMiddleware, async (req, res) => {
   try {
     const { paymentMethod = 'cash' } = req.body;
     
@@ -274,7 +275,7 @@ router.patch("/:id/pay", authMiddleware, async (req, res) => {
 });
 
 // 更新订单状态
-router.patch("/:id/status", authMiddleware, async (req, res) => {
+router.patch("/:id/status", adminOnlyMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
     const validStatuses = ["pending", "paid", "making", "completed", "cancelled"];
@@ -291,7 +292,7 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
 });
 
 // 确认收款
-router.post("/:id/confirm", authMiddleware, async (req, res) => {
+router.post("/:id/confirm", adminOnlyMiddleware, async (req, res) => {
   try {
     const { success, paymentMethod = 'cash' } = req.body;
     
@@ -351,7 +352,7 @@ router.post("/:id/confirm", authMiddleware, async (req, res) => {
 });
 
 // 删除订单
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", adminOnlyMiddleware, async (req, res) => {
   try {
     await prisma.order.delete({ where: { id: req.params.id } });
     res.json({ success: true });

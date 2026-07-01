@@ -3,9 +3,10 @@ import { Router } from 'express';
 import { prisma } from '../app.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/env.js';
+import { adminOnlyMiddleware } from '../middleware/adminOnly.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 管理员登录
 router.post('/login', async (req, res) => {
@@ -49,18 +50,10 @@ router.post('/login', async (req, res) => {
 });
 
 // 获取管理员信息
-router.get('/me', async (req, res) => {
+router.get('/me', adminOnlyMiddleware, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: '未登录' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
-
     const admin = await prisma.admin.findUnique({
-      where: { id: decoded.adminId },
+      where: { id: req.adminId },
       select: { id: true, username: true },
     });
 
@@ -71,7 +64,7 @@ router.get('/me', async (req, res) => {
     res.json(admin);
   } catch (error) {
     console.error('Get admin error:', error);
-    res.status(401).json({ error: 'token无效' });
+    res.status(500).json({ error: '获取管理员信息失败' });
   }
 });
 

@@ -1,29 +1,12 @@
 // @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
-import jwt from 'jsonwebtoken';
+import { adminOnlyMiddleware } from '../middleware/adminOnly.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
-
-// Middleware to verify admin token
-const adminAuth = (req: any, res: any, next: () => void) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: '未登录' });
-  }
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
-    req.adminId = decoded.adminId;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'token无效' });
-  }
-};
 
 // Get all users (with pagination and search)
-router.get('/users', adminAuth, async (req, res) => {
+router.get('/users', adminOnlyMiddleware, async (req, res) => {
   try {
     const { page = '1', limit = '20', search = '' } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -73,7 +56,7 @@ router.get('/users', adminAuth, async (req, res) => {
 });
 
 // Get user detail
-router.get('/users/:id', adminAuth, async (req, res) => {
+router.get('/users/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -112,7 +95,7 @@ router.get('/users/:id', adminAuth, async (req, res) => {
 });
 
 // Delete user
-router.delete('/users/:id', adminAuth, async (req, res) => {
+router.delete('/users/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     await prisma.user.delete({
       where: { id: req.params.id },
@@ -125,7 +108,7 @@ router.delete('/users/:id', adminAuth, async (req, res) => {
 });
 
 // Get user statistics
-router.get('/users/stats/summary', adminAuth, async (req, res) => {
+router.get('/users/stats/summary', adminOnlyMiddleware, async (req, res) => {
   try {
     const [totalUsers, usersWithOrders, totalAddresses] = await Promise.all([
       prisma.user.count(),

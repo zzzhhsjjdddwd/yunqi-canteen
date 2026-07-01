@@ -2,9 +2,9 @@
 import { Router } from 'express';
 import { prisma } from '../app.js';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/env.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 验证token中间件
 const authMiddleware = (req: any, res: any, next: any) => {

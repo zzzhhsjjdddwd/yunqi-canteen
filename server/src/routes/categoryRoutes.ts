@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { adminOnlyMiddleware } from '../middleware/adminOnly.js';
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // 创建分类 (需认证)
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', adminOnlyMiddleware, async (req, res) => {
   try {
     const { name, sortOrder } = req.body;
     if (!name) {
@@ -52,7 +52,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 // 更新分类 (需认证)
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     const { name, sortOrder } = req.body;
     const category = await prisma.category.update({
@@ -67,7 +67,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // 删除分类 (需认证)
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', adminOnlyMiddleware, async (req, res) => {
   try {
     // 检查分类下是否有商品
     const products = await prisma.product.count({
