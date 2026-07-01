@@ -26,16 +26,26 @@ const PORT = process.env.PORT || 3001;
 async function seedDatabase() {
   console.log('Initializing database...');
   
-  const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
-  await prisma.admin.upsert({
-    where: { username: 'admin' },
-    update: { password: hashedPassword },
-    create: {
-      username: 'admin',
-      password: hashedPassword,
-    },
-  });
-  console.log('Admin account ready');
+  // 仅在开发环境或明确设置了 ADMIN_PASSWORD 时创建默认管理员
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (adminPassword) {
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    await prisma.admin.upsert({
+      where: { username: 'admin' },
+      update: { password: hashedPassword },
+      create: {
+        username: 'admin',
+        password: hashedPassword,
+      },
+    });
+    console.log('Admin account ready');
+  } else {
+    // 检查是否已有管理员，没有则警告
+    const adminCount = await prisma.admin.count();
+    if (adminCount === 0) {
+      console.warn('⚠️  警告：没有管理员账号，请设置 ADMIN_PASSWORD 环境变量以创建默认管理员');
+    }
+  }
   
   await prisma.settings.upsert({
     where: { id: 'default' },

@@ -9,7 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { upload } from './utils/upload.js';
 import { setupSocket } from './socket/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { authMiddleware } from './middleware/auth.js';
+import { authMiddleware, adminAuthMiddleware } from './middleware/auth.js';
 
 // Load environment variables
 config();
@@ -46,11 +46,11 @@ export const io = new Server(httpServer, {
         callback(null, true);
         return;
       }
-      // Allow any vercel.app domain, any custom domain
       if (
         origin.endsWith('.vercel.app') ||
         origin.endsWith('.onrender.com') ||
-        origin.startsWith('https://') ||
+        origin.endsWith('.github.io') ||
+        origin.endsWith('.railway.app') ||
         allowedOrigins.includes(origin)
       ) {
         callback(null, true);
@@ -76,7 +76,8 @@ app.use(cors({
     if (
       origin.endsWith('.vercel.app') ||
       origin.endsWith('.onrender.com') ||
-      origin.startsWith('https://') ||
+      origin.endsWith('.github.io') ||
+      origin.endsWith('.railway.app') ||
       allowedOrigins.includes(origin)
     ) {
       callback(null, true);
@@ -133,11 +134,11 @@ app.use('/api/admin', adminUserRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/admin/orders', authMiddleware, orderRoutes);
-app.use('/api/admin/products', productRoutes);
-app.use('/api/admin/categories', categoryRoutes);
-app.use('/api/admin/settings', settingsRoutes);
-app.use('/api/admin/finance', authMiddleware, financeRoutes);
+app.use('/api/admin/orders', adminAuthMiddleware, orderRoutes);
+app.use('/api/admin/products', adminAuthMiddleware, productRoutes);
+app.use('/api/admin/categories', adminAuthMiddleware, categoryRoutes);
+app.use('/api/admin/settings', adminAuthMiddleware, settingsRoutes);
+app.use('/api/admin/finance', adminAuthMiddleware, financeRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // Socket setup

@@ -92,7 +92,7 @@ export default function ProfilePage() {
           <div className="border-t border-white/20" />
 
           <button
-            onClick={() => navigate('/orders')}
+            onClick={() => navigate('/menu/orders')}
             className="w-full flex items-center gap-4 p-4 hover:bg-white/50 active:scale-[0.99] transition-all"
           >
             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">

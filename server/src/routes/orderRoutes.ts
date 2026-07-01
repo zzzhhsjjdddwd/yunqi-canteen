@@ -22,7 +22,7 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
+      process.env.JWT_SECRET || 'dev-secret-key-change-in-production'
     ) as { adminId?: string; username?: string; userId?: string; phone?: string };
     if (decoded.adminId) {
       req.adminId = decoded.adminId;
@@ -40,33 +40,70 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
 }
 
 // 创建订单 (公开，可选用户ID)
-router.post("/", async (req, res) => {
+router.post("/", optionalAuth, async (req: Request, res) => {
   try {
-    const { items, total, remark, userId, addressId } = req.body;
+    const { items, remark, addressId } = req.body;
     if (!items || items.length === 0) {
       return res.status(400).json({ error: "订单商品不能为空" });
     }
-    if (!total) {
-      return res.status(400).json({ error: "订单金额不能为空" });
-    }
+
+    const userId = req.userId;
     if (addressId) {
+      if (!userId) {
+        return res.status(401).json({ error: "请先登录" });
+      }
       const address = await prisma.address.findFirst({ where: { id: addressId, userId } });
       if (!address) { return res.status(400).json({ error: "地址不存在" }); }
     }
+
+    // 服务端按商品现价重算金额，不信任客户端传的 total
+    const productIds = items.map((item: any) => item.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, status: 'active' },
+    });
+
+    if (products.length === 0) {
+      return res.status(400).json({ error: "商品不存在或已下架" });
+    }
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+    let calculatedTotal = 0;
+    const orderItems = items.map((item: any) => {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw new Error(`商品 ${item.productId} 不存在`);
+      }
+      const quantity = Math.max(1, Math.min(99, parseInt(item.quantity) || 1));
+      const price = Math.round(product.price);
+      calculatedTotal += price * quantity;
+      return {
+        productId: product.id,
+        productName: product.name,
+        price,
+        quantity,
+        subtotal: price * quantity,
+      };
+    });
+
     const orderNo = generateOrderNo();
     const order = await prisma.order.create({
       data: {
-        orderNo, total: Math.round(total), status: "pending", paymentStatus: "unpaid",
-        remark, userId, addressId,
-        items: { create: items.map((item: any) => ({ productId: item.productId, productName: item.productName, price: Math.round(item.price), quantity: item.quantity })) },
+        orderNo,
+        total: calculatedTotal,
+        status: "pending",
+        paymentStatus: "unpaid",
+        remark,
+        userId,
+        addressId,
+        items: { create: orderItems },
       },
       include: { items: true, address: { select: { id: true, name: true, phone: true, province: true, city: true, district: true, detail: true } }, user: { select: { id: true, nickname: true, phone: true, avatar: true } } },
     });
     io.to("admin").emit("order:create", { orderId: order.id, orderNo: order.orderNo, items: order.items, total: order.total, remark: order.remark, createdAt: order.createdAt, address: order.address, user: order.user });
     res.status(201).json(order);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Create order error:", error);
-    res.status(500).json({ error: "创建订单失败" });
+    res.status(500).json({ error: error.message || "创建订单失败" });
   }
 });
 
@@ -204,11 +241,38 @@ async function getCurrentBalance(prisma) {
 // 创建交易记录
 async function createTransaction(prisma, data) {
   const currentBalance = await getCurrentBalance(prisma);
-  const newBalance = data.type === 'income' 
-    ? currentBalance + data.amount 
+  const newBalance = data.type === 'income'
+    ? currentBalance + data.amount
     : currentBalance - data.amount;
-  
+
   return prisma.transaction.create({
+    data: {
+      type: data.type,
+      category: data.category,
+      amount: data.amount,
+      balanceAfter: newBalance,
+      orderId: data.orderId,
+      description: data.description,
+      remark: data.remark,
+      operator: data.operator,
+      referenceNo: generateReferenceNo(),
+      paymentMethod: data.paymentMethod,
+      status: 'completed',
+    },
+  });
+}
+
+async function createTransactionInTx(tx, data) {
+  const lastTx = await tx.transaction.findFirst({
+    orderBy: { createdAt: 'desc' },
+    select: { balanceAfter: true },
+  });
+  const currentBalance = lastTx?.balanceAfter || 0;
+  const newBalance = data.type === 'income'
+    ? currentBalance + data.amount
+    : currentBalance - data.amount;
+
+  return tx.transaction.create({
     data: {
       type: data.type,
       category: data.category,
@@ -229,40 +293,45 @@ async function createTransaction(prisma, data) {
 router.patch("/:id/pay", authMiddleware, async (req, res) => {
   try {
     const { paymentMethod = 'cash' } = req.body;
-    
+
     // 先获取订单信息
-    const existingOrder = await prisma.order.findUnique({ 
+    const existingOrder = await prisma.order.findUnique({
       where: { id: req.params.id },
       include: { items: true }
     });
-    
+
     if (!existingOrder) {
       return res.status(404).json({ error: "订单不存在" });
     }
-    
-    // 检查是否已支付，避免重复创建交易记录
+
+    // 检查是否已支付，避免重复创建交易记录（幂等）
     if (existingOrder.paymentStatus === 'paid') {
       return res.status(400).json({ error: "订单已支付" });
     }
-    
-    // 更新订单状态
-    const order = await prisma.order.update({ 
-      where: { id: req.params.id }, 
-      data: { paymentStatus: "paid", status: "paid" }, 
-      include: { items: true } 
+
+    // 使用数据库事务保证一致性
+    const order = await prisma.$transaction(async (tx) => {
+      // 更新订单状态
+      const updated = await tx.order.update({
+        where: { id: req.params.id },
+        data: { paymentStatus: "paid", status: "paid" },
+        include: { items: true }
+      });
+
+      // 创建交易记录（收入）
+      await createTransactionInTx(tx, {
+        type: 'income',
+        category: '销售收入',
+        amount: updated.total,
+        orderId: updated.id,
+        description: `订单支付 - ${updated.orderNo}`,
+        operator: req.adminUsername || 'admin',
+        paymentMethod: paymentMethod,
+      });
+
+      return updated;
     });
-    
-    // 自动创建交易记录（收入）
-    await createTransaction(prisma, {
-      type: 'income',
-      category: '销售收入',
-      amount: order.total,
-      orderId: order.id,
-      description: `订单支付 - ${order.orderNo}`,
-      operator: req.adminUsername || 'admin',
-      paymentMethod: paymentMethod,
-    });
-    
+
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
@@ -294,51 +363,61 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
 router.post("/:id/confirm", authMiddleware, async (req, res) => {
   try {
     const { success, paymentMethod = 'cash' } = req.body;
-    
+
     // 先获取订单信息
-    const existingOrder = await prisma.order.findUnique({ 
+    const existingOrder = await prisma.order.findUnique({
       where: { id: req.params.id },
       include: { items: true }
     });
-    
+
     if (!existingOrder) {
       return res.status(404).json({ error: "订单不存在" });
     }
-    
-    // 更新订单状态
-    const order = await prisma.order.update({ 
-      where: { id: req.params.id }, 
-      data: { paymentStatus: success ? "paid" : "failed", status: success ? "paid" : "cancelled" }, 
-      include: { items: true } 
+
+    // 幂等校验：已支付的订单不重复处理
+    if (success && existingOrder.paymentStatus === 'paid') {
+      return res.status(400).json({ error: "订单已支付" });
+    }
+
+    // 使用数据库事务保证一致性
+    const order = await prisma.$transaction(async (tx) => {
+      // 更新订单状态
+      const updated = await tx.order.update({
+        where: { id: req.params.id },
+        data: { paymentStatus: success ? "paid" : "failed", status: success ? "paid" : "cancelled" },
+        include: { items: true }
+      });
+
+      // 支付成功时创建交易记录（收入）
+      if (success && existingOrder.paymentStatus !== 'paid') {
+        await createTransactionInTx(tx, {
+          type: 'income',
+          category: '销售收入',
+          amount: updated.total,
+          orderId: updated.id,
+          description: `订单支付 - ${updated.orderNo}`,
+          operator: req.adminUsername || 'admin',
+          paymentMethod: paymentMethod,
+        });
+      }
+
+      // 支付失败时创建退款支出记录
+      if (!success && existingOrder.paymentStatus !== 'paid') {
+        await createTransactionInTx(tx, {
+          type: 'expense',
+          category: '退款支出',
+          amount: updated.total,
+          orderId: updated.id,
+          description: `支付失败退款 - ${updated.orderNo}`,
+          remark: '客户支付失败退款',
+          operator: req.adminUsername || 'admin',
+          paymentMethod: paymentMethod,
+        });
+      }
+
+      return updated;
     });
-    
-    // 支付成功时自动创建交易记录（收入）
-    if (success && existingOrder.paymentStatus !== 'paid') {
-      await createTransaction(prisma, {
-        type: 'income',
-        category: '销售收入',
-        amount: order.total,
-        orderId: order.id,
-        description: `订单支付 - ${order.orderNo}`,
-        operator: req.adminUsername || 'admin',
-        paymentMethod: paymentMethod,
-      });
-    }
-    
-    // 支付失败时创建退款支出记录
-    if (!success && existingOrder.paymentStatus !== 'paid') {
-      await createTransaction(prisma, {
-        type: 'expense',
-        category: '退款支出',
-        amount: order.total,
-        orderId: order.id,
-        description: `支付失败退款 - ${order.orderNo}`,
-        remark: '客户支付失败退款',
-        operator: req.adminUsername || 'admin',
-        paymentMethod: paymentMethod,
-      });
-    }
-    
+
     io.emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
