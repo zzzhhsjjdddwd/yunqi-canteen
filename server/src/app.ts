@@ -133,7 +133,7 @@ app.use('/api/', generalRateLimit);
 
 // Rate limiting - 认证接口更严格限制（在通用限制之上叠加）
 app.use('/api/auth', authRateLimit, authRoutes);
-app.use('/api/admin', authRateLimit, adminAuthRoutes);
+app.use('/api/admin', adminAuthRoutes);
 
 app.use('/api/addresses', addressRoutes);
 app.use('/api/admin', adminUserRoutes);

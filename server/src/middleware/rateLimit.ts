@@ -60,14 +60,14 @@ export function rateLimit(options: RateLimitOptions) {
   };
 }
 
-// 预设: 通用 API 限制 - 100次/15分钟
+// 预设: 通用 API 限制 - 500次/15分钟
 export const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  maxRequests: 100,
+  maxRequests: 500,
 });
 
-// 预设: 认证接口限制 - 10次/15分钟
+// 预设: 认证接口限制 - 20次/15分钟
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  maxRequests: 10,
+  maxRequests: 20,
 });
