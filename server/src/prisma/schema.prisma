@@ -57,6 +57,7 @@ model OrderItem {
   productName String
   price       Int
   quantity    Int
+  subtotal    Int
 }
 
 model Settings {
