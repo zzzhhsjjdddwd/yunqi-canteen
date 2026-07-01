@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -35,12 +35,33 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const retryCountRef = useRef(0);
+  const timeoutRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadDashboardData();
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, []);
+
+  const scheduleNext = () => {
+    if (!mountedRef.current) return;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    const baseInterval = 30000;
+    const delay = error ? Math.min(baseInterval * Math.pow(2, retryCountRef.current), 300000) : baseInterval;
+    timeoutRef.current = window.setTimeout(() => {
+      loadDashboardData();
+    }, delay);
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -48,13 +69,20 @@ export default function DashboardPage() {
         getStats(),
         getOrders({ pageSize: 5 }),
       ]);
+      if (!mountedRef.current) return;
       setStats(statsData);
       setRecentOrders(ordersData.orders);
       setError('');
+      retryCountRef.current = 0;
     } catch (err) {
+      if (!mountedRef.current) return;
       setError('加载数据失败，请刷新重试');
+      retryCountRef.current = Math.min(retryCountRef.current + 1, 5);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        scheduleNext();
+      }
     }
   };
 

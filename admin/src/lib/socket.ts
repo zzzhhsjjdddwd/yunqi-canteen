@@ -30,7 +30,6 @@ export function initSocket() {
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
     withCredentials: false,
-    forceNew: true,
     auth: token ? { token, role: 'admin' } : undefined,
   });
 
