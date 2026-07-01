@@ -7,6 +7,20 @@ import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 
+function enrichOrderItems(order: any) {
+  if (order && order.items && Array.isArray(order.items)) {
+    order.items = order.items.map((item: any) => ({
+      ...item,
+      subtotal: item.price * item.quantity,
+    }));
+  }
+  return order;
+}
+
+function enrichOrderList(orders: any[]) {
+  return orders.map(enrichOrderItems);
+}
+
 // 生成订单号
 function generateOrderNo() {
   const date = new Date();
@@ -81,7 +95,6 @@ router.post("/", optionalAuth, async (req: Request, res) => {
         productName: product.name,
         price,
         quantity,
-        subtotal: price * quantity,
       };
     });
 
@@ -99,8 +112,9 @@ router.post("/", optionalAuth, async (req: Request, res) => {
       },
       include: { items: true, address: { select: { id: true, name: true, phone: true, province: true, city: true, district: true, detail: true } }, user: { select: { id: true, nickname: true, phone: true, avatar: true } } },
     });
-    io.to("admin").emit("order:create", { orderId: order.id, orderNo: order.orderNo, items: order.items, total: order.total, remark: order.remark, createdAt: order.createdAt, address: order.address, user: order.user });
-    res.status(201).json(order);
+    const enriched = enrichOrderItems(order);
+    io.to("admin").emit("order:create", { orderId: enriched.id, orderNo: enriched.orderNo, items: enriched.items, total: enriched.total, remark: enriched.remark, createdAt: enriched.createdAt, address: enriched.address, user: enriched.user });
+    res.status(201).json(enriched);
   } catch (error: any) {
     console.error("Create order error:", error);
     res.status(500).json({ error: error.message || "创建订单失败" });
@@ -130,7 +144,7 @@ router.get("/", optionalAuth, async (req: Request, res, next) => {
       orderBy: { createdAt: "desc" },
       take: Math.min(Number(limit), 200),
     });
-    res.json(orders);
+    res.json(enrichOrderList(orders));
   } catch (error) {
     console.error("Get client orders error:", error);
     res.status(500).json({ error: "获取订单列表失败" });
@@ -157,7 +171,7 @@ router.patch("/:id/delete", optionalAuth, async (req: Request, res, next) => {
       data: { deletedByUser: true },
     });
 
-    res.json(updated);
+    res.json(enrichOrderItems(updated));
   } catch (error) {
     console.error("Delete order error:", error);
     res.status(500).json({ error: "删除订单失败" });
@@ -249,7 +263,7 @@ router.get("/", adminAuthMiddleware, async (req, res) => {
       prisma.order.count({ where }),
     ]);
 
-    res.json({ orders, total, page: pageNum, pageSize: pageSizeNum });
+    res.json({ orders: enrichOrderList(orders), total, page: pageNum, pageSize: pageSizeNum });
   } catch (error) {
     console.error("Get admin orders error:", error);
     res.status(500).json({ error: "获取订单列表失败" });
@@ -373,7 +387,7 @@ router.patch("/:id/pay", adminAuthMiddleware, async (req, res) => {
 
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
-    res.json(order);
+    res.json(enrichOrderItems(order));
   } catch (error) {
     console.error("Mark paid error:", error);
     res.status(500).json({ error: "标记支付失败" });
@@ -389,7 +403,7 @@ router.patch("/:id/status", adminAuthMiddleware, async (req, res) => {
     const order = await prisma.order.update({ where: { id: req.params.id }, data: { status }, include: { items: true } });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
-    res.json(order);
+    res.json(enrichOrderItems(order));
   } catch (error) {
     console.error("Update order status error:", error);
     res.status(500).json({ error: "更新订单状态失败" });
@@ -460,7 +474,7 @@ router.post("/:id/confirm", adminAuthMiddleware, async (req, res) => {
     io.to("client").emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
-    res.json(order);
+    res.json(enrichOrderItems(order));
   } catch (error) {
     console.error("Confirm payment error:", error);
     res.status(500).json({ error: "确认收款失败" });
@@ -502,7 +516,7 @@ router.get("/:id", optionalAuth, async (req: Request, res) => {
     if (req.userId && order.deletedByUser) {
       return res.status(404).json({ error: "订单不存在" });
     }
-    res.json(order);
+    res.json(enrichOrderItems(order));
   } catch (error) {
     console.error("Get order error:", error);
     res.status(500).json({ error: "获取订单失败" });
@@ -540,7 +554,7 @@ router.post("/:id/cancel", optionalAuth, async (req: Request, res) => {
         status: updatedOrder.status,
       });
     }
-    res.json(updatedOrder);
+    res.json(enrichOrderItems(updatedOrder));
   } catch (error) {
     console.error("Cancel order error:", error);
     res.status(500).json({ error: "取消订单失败" });
