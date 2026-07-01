@@ -74,6 +74,9 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp}'],
           globIgnores: ['**/node_modules/**', '**/dist/**'],
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
@@ -100,28 +103,6 @@ export default defineConfig(({ mode }) => {
                 },
                 cacheableResponse: {
                   statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: new RegExp(`${API_URL}\\/api\\/products`, 'i'),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'products-api',
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60 * 60, // 1 hour
-                },
-              },
-            },
-            {
-              urlPattern: new RegExp(`${API_URL}\\/api\\/categories`, 'i'),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'categories-api',
-                expiration: {
-                  maxEntries: 20,
-                  maxAgeSeconds: 60 * 60 * 24, // 24 hours
                 },
               },
             },

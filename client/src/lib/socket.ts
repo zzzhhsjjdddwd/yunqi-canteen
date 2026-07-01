@@ -2,8 +2,8 @@ import { io, Socket } from 'socket.io-client';
 import type { PaymentConfirmData, OrderStatusUpdateData } from '../../../shared/types';
 
 let socket: Socket | null = null;
+let currentToken: string | null = null;
 
-// 在开发环境中通过Vite代理，生产环境直接连接到部署的后端
 const SERVER_URL = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
 function getToken(): string | null {
@@ -19,35 +19,50 @@ function getToken(): string | null {
   return null;
 }
 
-export function getSocket(): Socket {
-  if (!socket) {
-    const token = getToken();
-    socket = io(SERVER_URL || window.location.origin, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-      withCredentials: false,
-      forceNew: false,
-      auth: token ? { token } : undefined,
-    });
+export function initSocket() {
+  const token = getToken();
 
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket?.id);
-      // Auto-join client room
-      socket?.emit('join:client');
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error.message);
-    });
+  if (socket && currentToken === token) {
+    return socket;
   }
 
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+
+  currentToken = token;
+  socket = io(SERVER_URL || window.location.origin, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,
+    withCredentials: false,
+    forceNew: true,
+    auth: token ? { token } : undefined,
+  });
+
+  socket.on('connect', () => {
+    console.log('Socket connected:', socket?.id);
+    socket?.emit('join:client');
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Socket disconnected:', reason);
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket connection error:', error.message);
+  });
+
+  return socket;
+}
+
+export function getSocket(): Socket {
+  if (!socket) {
+    return initSocket();
+  }
   return socket;
 }
 
@@ -73,5 +88,6 @@ export function disconnectSocket() {
   if (socket) {
     socket.disconnect();
     socket = null;
+    currentToken = null;
   }
 }

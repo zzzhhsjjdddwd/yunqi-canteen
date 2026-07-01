@@ -5,6 +5,7 @@ import Loading from './components/Loading';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ToastProvider } from './components/ui/Toast';
+import { usePwaUpdate } from './hooks/usePwaUpdate';
 
 const MenuPage = lazy(() => import('./pages/MenuPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
@@ -14,13 +15,30 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AddressesPage = lazy(() => import('./pages/AddressesPage'));
 const AddressFormPage = lazy(() => import('./pages/AddressFormPage'));
 
+function PwaUpdateBanner() {
+  const { needRefresh } = usePwaUpdate();
+
+  if (!needRefresh) return null;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[10000] bg-primary text-white text-center py-2 text-sm shadow-lg">
+      发现新版本，
+      <button
+        onClick={() => window.location.reload()}
+        className="underline font-semibold ml-1 hover:text-white/90"
+      >
+        点击刷新
+      </button>
+    </div>
+  );
+}
+
 /** 用 key 触发页面切换淡入动画 */
 function AnimatedOutlet() {
   const location = useLocation();
   const [animKey, setAnimKey] = useState(location.pathname);
 
   useEffect(() => {
-    // 路由变更时重新挂载子页面以触发 CSS 动画
     setAnimKey(location.pathname);
   }, [location.pathname]);
 
@@ -89,6 +107,7 @@ function App() {
   return (
     <ToastProvider>
       <ErrorBoundary>
+        <PwaUpdateBanner />
         <Suspense fallback={<Loading />}>
           <AnimatedOutlet />
         </Suspense>
