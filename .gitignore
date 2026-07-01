@@ -8,6 +8,13 @@ dist/
 !dist-static/
 !dist-static/**
 
+# Vite/PWA build artifacts (should only exist in dist/, not in source)
+**/assets/
+**/sw.js
+**/workbox-*.js
+**/registerSW.js
+**/tsconfig.tsbuildinfo
+
 # Logs
 *.log
 npm-debug.log*
