@@ -9,11 +9,16 @@ dist/
 !dist-static/**
 
 # Vite/PWA build artifacts (should only exist in dist/, not in source)
-**/assets/
-**/sw.js
-**/workbox-*.js
-**/registerSW.js
-**/tsconfig.tsbuildinfo
+client/assets/
+admin/assets/
+client/sw.js
+client/workbox-*.js
+client/registerSW.js
+client/tsconfig.tsbuildinfo
+admin/sw.js
+admin/workbox-*.js
+admin/registerSW.js
+admin/tsconfig.tsbuildinfo
 
 # Logs
 *.log
