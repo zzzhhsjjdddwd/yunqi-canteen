@@ -39,7 +39,6 @@ export function initSocket() {
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
     withCredentials: false,
-    forceNew: true,
     auth: token ? { token } : undefined,
   });
 
@@ -81,6 +80,13 @@ export function onOrderStatusUpdate(callback: (data: OrderStatusUpdateData) => v
   getSocket().on('order:status-update', callback);
   return () => {
     getSocket().off('order:status-update', callback);
+  };
+}
+
+export function onOrderCancelled(callback: (data: { orderId: string; orderNo: string; status: string }) => void) {
+  getSocket().on('order:cancelled', callback);
+  return () => {
+    getSocket().off('order:cancelled', callback);
   };
 }
 

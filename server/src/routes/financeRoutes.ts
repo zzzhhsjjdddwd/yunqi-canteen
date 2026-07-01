@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { adminAuthMiddleware } from '../middleware/auth.js';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -222,7 +223,6 @@ router.post('/transactions', async (req: Request, res: Response) => {
       remark,
       orderId,
       paymentMethod,
-      operator,
     } = req.body;
 
     if (!type || !category || !amount || amount <= 0) {
@@ -248,7 +248,7 @@ router.post('/transactions', async (req: Request, res: Response) => {
         orderId,
         description,
         remark,
-        operator,
+        operator: req.adminUsername || 'admin',
         referenceNo,
         paymentMethod,
         status: 'completed',
@@ -409,20 +409,28 @@ router.get('/trend', async (req: Request, res: Response) => {
 // ============================================
 router.get('/category-stats', async (req: Request, res: Response) => {
   try {
-    const { type = 'income', period = 'month' } = req.query as any;
+    const { type = 'income', period = '30d' } = req.query as any;
 
     let startDate: Date;
     const now = new Date();
 
     if (period === 'today') {
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (period === 'week') {
+    } else if (period === '7d') {
       startDate = new Date(now);
       startDate.setDate(now.getDate() - 7);
+    } else if (period === '90d') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 90);
+    } else if (period === '12m') {
+      startDate = new Date(now);
+      startDate.setFullYear(now.getFullYear() - 1);
     } else if (period === 'year') {
       startDate = new Date(now.getFullYear(), 0, 1);
     } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      // 30d / month
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
     }
 
     const transactions = await prisma.transaction.findMany({
@@ -524,7 +532,6 @@ router.post('/invoices', async (req: Request, res: Response) => {
       dueDate,
       items,
       remark,
-      operator,
     } = req.body;
 
     if (!type || !amount || amount <= 0) {
@@ -544,7 +551,7 @@ router.post('/invoices', async (req: Request, res: Response) => {
         dueDate: dueDate ? new Date(dueDate) : null,
         items: items || null,
         remark,
-        operator,
+        operator: req.adminUsername || 'admin',
         issuedAt: new Date(),
       },
       include: { order: true },
@@ -581,7 +588,7 @@ router.get('/invoices/:id', async (req: Request, res: Response) => {
 // ============================================
 router.patch('/invoices/:id/status', async (req: Request, res: Response) => {
   try {
-    const { status, operator } = req.body;
+    const { status } = req.body;
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
     });
@@ -597,13 +604,15 @@ router.patch('/invoices/:id/status', async (req: Request, res: Response) => {
       data: updateData,
     });
 
+    const operator = req.adminUsername || 'admin';
+
     // 如果账单已支付，自动生成交易记录
     if (status === 'paid' && invoice.status !== 'paid') {
       const currentBalance = await getCurrentBalance();
       const referenceNo = generateReferenceNo();
       const txType = invoice.type === 'sale' ? 'income' : 'expense';
-      const newBalance = txType === 'income' 
-        ? currentBalance + invoice.amount 
+      const newBalance = txType === 'income'
+        ? currentBalance + invoice.amount
         : currentBalance - invoice.amount;
 
       await prisma.transaction.create({
@@ -615,7 +624,29 @@ router.patch('/invoices/:id/status', async (req: Request, res: Response) => {
           orderId: invoice.orderId || undefined,
           description: `账单支付 - ${invoice.invoiceNo}`,
           referenceNo,
-          operator: operator || 'system',
+          operator,
+          status: 'completed',
+        },
+      });
+    }
+
+    // 如果账单退款（从 paid 变为 refunded），创建反向冲销交易
+    if (status === 'refunded' && invoice.status === 'paid') {
+      const currentBalance = await getCurrentBalance();
+      const referenceNo = generateReferenceNo();
+      const newBalance = currentBalance - invoice.amount;
+
+      await prisma.transaction.create({
+        data: {
+          type: 'expense',
+          category: '退款支出',
+          amount: invoice.amount,
+          balanceAfter: newBalance,
+          orderId: invoice.orderId || undefined,
+          description: `账单退款 - ${invoice.invoiceNo}`,
+          remark: '账单退款冲销',
+          referenceNo,
+          operator,
           status: 'completed',
         },
       });
@@ -715,6 +746,7 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
         profit,
         profitRate: incomeAmt > 0 ? Math.round((profit / incomeAmt) * 1000) / 10 : 0,
         orderCount,
+        orderTotal: orderTotalAmt,
         avgOrderPrice: orderCount > 0 ? Math.round(orderTotalAmt / orderCount) : 0,
       });
     }
@@ -723,9 +755,7 @@ router.get('/report/monthly', async (req: Request, res: Response) => {
     const totalExpense = months.reduce((s, m) => s + m.expense, 0);
     const totalProfit = totalIncome - totalExpense;
     const totalOrders = months.reduce((s, m) => s + m.orderCount, 0);
-    const totalOrderRevenue = months.reduce((s, m) => {
-      return s + (m.orderCount > 0 ? m.avgOrderPrice * m.orderCount : 0);
-    }, 0);
+    const totalOrderRevenue = months.reduce((s, m) => s + m.orderTotal, 0);
 
     res.json({
       year: targetYear,
@@ -805,9 +835,10 @@ router.get('/transactions/export/csv', async (req: Request, res: Response) => {
     ].join('\n');
 
     const filename = `交易明细_${new Date().toISOString().split('T')[0]}.csv`;
-    
+    const encodedFilename = encodeURIComponent(filename);
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-Length', Buffer.byteLength('\uFEFF' + csvContent, 'utf8'));
     
     res.write('\uFEFF');
@@ -910,9 +941,10 @@ router.get('/report/monthly/export/csv', async (req: Request, res: Response) => 
     ].join('\n');
 
     const filename = `${targetYear}年度财务报表.csv`;
-    
+    const encodedFilename = encodeURIComponent(filename);
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-Length', Buffer.byteLength('\uFEFF' + csvContent, 'utf8'));
     
     res.write('\uFEFF');
@@ -929,31 +961,49 @@ router.get('/report/monthly/export/csv', async (req: Request, res: Response) => 
 // ============================================
 router.get('/analytics', async (req: Request, res: Response) => {
   try {
-    const { period = 'month' } = req.query as any;
-    
+    const { period = '30d' } = req.query as any;
+
     // 计算时间范围
     const now = new Date();
     let currentStart: Date, previousStart: Date, previousYearStart: Date;
-    
+    let periodDays: number;
+
     if (period === 'today') {
       currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       previousStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
       previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-    } else if (period === 'week') {
+    } else if (period === '7d') {
+      periodDays = 7;
       currentStart = new Date(now);
-      currentStart.setDate(now.getDate() - 7);
+      currentStart.setDate(now.getDate() - periodDays);
       previousStart = new Date(now);
-      previousStart.setDate(now.getDate() - 14);
+      previousStart.setDate(now.getDate() - periodDays * 2);
       previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    } else if (period === '90d') {
+      periodDays = 90;
+      currentStart = new Date(now);
+      currentStart.setDate(now.getDate() - periodDays);
+      previousStart = new Date(now);
+      previousStart.setDate(now.getDate() - periodDays * 2);
+      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    } else if (period === '12m') {
+      currentStart = new Date(now);
+      currentStart.setFullYear(now.getFullYear() - 1);
+      previousStart = new Date(now);
+      previousStart.setFullYear(now.getFullYear() - 2);
+      previousYearStart = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
     } else if (period === 'year') {
       currentStart = new Date(now.getFullYear(), 0, 1);
       previousStart = new Date(now.getFullYear() - 1, 0, 1);
       previousYearStart = new Date(now.getFullYear() - 2, 0, 1);
     } else {
-      // month
-      currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+      // 30d / month
+      periodDays = 30;
+      currentStart = new Date(now);
+      currentStart.setDate(now.getDate() - periodDays);
+      previousStart = new Date(now);
+      previousStart.setDate(now.getDate() - periodDays * 2);
+      previousYearStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
     }
 
     // 本期数据（从真实订单统计）
@@ -1098,20 +1148,28 @@ router.get('/analytics', async (req: Request, res: Response) => {
 // ============================================
 router.get('/order-stats', async (req: Request, res: Response) => {
   try {
-    const { period = 'month' } = req.query as any;
-    
+    const { period = '30d' } = req.query as any;
+
     const now = new Date();
     let startDate: Date;
-    
+
     if (period === 'today') {
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (period === 'week') {
+    } else if (period === '7d') {
       startDate = new Date(now);
       startDate.setDate(now.getDate() - 7);
+    } else if (period === '90d') {
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 90);
+    } else if (period === '12m') {
+      startDate = new Date(now);
+      startDate.setFullYear(now.getFullYear() - 1);
     } else if (period === 'year') {
       startDate = new Date(now.getFullYear(), 0, 1);
     } else {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      // 30d / month
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
     }
 
     // 从真实订单统计收入

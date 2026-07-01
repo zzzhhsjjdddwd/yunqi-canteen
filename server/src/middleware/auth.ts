@@ -5,7 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.warn('⚠️  警告：JWT_SECRET 环境变量未设置，使用开发环境默认密钥。生产环境请务必设置！');
 }
-const SECRET = JWT_SECRET || 'dev-secret-key-change-in-production';
+const SECRET = JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.split(' ')[1];

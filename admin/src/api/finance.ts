@@ -18,6 +18,39 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+// 带认证的文件下载（用于 CSV 导出等需要 Authorization 头的场景）
+async function downloadWithAuth(path: string): Promise<void> {
+  const token = localStorage.getItem('admin-token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const response = await fetch(`${API_BASE}${path}`, { headers });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: '导出失败' }));
+    throw new Error(error.error || '导出失败');
+  }
+  const blob = await response.blob();
+  // 从 Content-Disposition 解析文件名
+  const cd = response.headers.get('Content-Disposition') || '';
+  let filename = 'export.csv';
+  const match = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  if (match) {
+    filename = decodeURIComponent(match[1]);
+  } else {
+    const fallback = cd.match(/filename="?([^";]+)"?/i);
+    if (fallback) filename = fallback[1];
+  }
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
 export interface FinanceOverview {
   balance: number;
   today: { income: number; expense: number; profit: number; orders: number };
@@ -193,7 +226,7 @@ export const financeAPI = {
       if (v !== undefined && v !== '' && v !== 'all') sp.set(k, String(v));
     });
     const q = sp.toString();
-    return `${API_BASE}/api/admin/finance/transactions/export/csv${q ? `?${q}` : ''}`;
+    return downloadWithAuth(`/api/admin/finance/transactions/export/csv${q ? `?${q}` : ''}`);
   },
 
   getCategories: (type?: string) => {
@@ -255,7 +288,7 @@ export const financeAPI = {
 
   exportMonthlyReport: (year?: number) => {
     const q = year ? `?year=${year}` : '';
-    return `${API_BASE}/api/admin/finance/report/monthly/export/csv${q}`;
+    return downloadWithAuth(`/api/admin/finance/report/monthly/export/csv${q}`);
   },
 
   // 智能财务分析

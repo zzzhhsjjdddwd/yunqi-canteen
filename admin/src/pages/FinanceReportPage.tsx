@@ -22,9 +22,12 @@ const FinanceReportPage = () => {
     }
   };
 
-  const handleExport = () => {
-    const url = financeAPI.exportMonthlyReport(selectedYear);
-    window.open(url, '_blank');
+  const handleExport = async () => {
+    try {
+      await financeAPI.exportMonthlyReport(selectedYear);
+    } catch (e: any) {
+      alert(e.message || '导出失败');
+    }
   };
 
   const maxIncome = useMemo(() => {

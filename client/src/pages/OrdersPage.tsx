@@ -16,7 +16,7 @@ import { useToast } from '../components/ui/Toast';
 import { getOrders, cancelOrder, deleteOrder } from '../lib/api';
 import { formatPrice, formatDate } from '../lib/utils';
 import { useOrderStore } from '../stores/orderStore';
-import { onOrderStatusUpdate } from '../lib/socket';
+import { onOrderStatusUpdate, onOrderCancelled } from '../lib/socket';
 import type { Order } from '../../../shared/types';
 
 export default function OrdersPage() {
@@ -82,7 +82,13 @@ export default function OrdersPage() {
     const unsubscribe = onOrderStatusUpdate((data) => {
       updateOrderStatus(data.orderId, data.status);
     });
-    return () => unsubscribe();
+    const unsubscribeCancelled = onOrderCancelled((data) => {
+      updateOrderStatus(data.orderId, 'cancelled');
+    });
+    return () => {
+      unsubscribe();
+      unsubscribeCancelled();
+    };
   }, []);
 
   const renderContent = () => {

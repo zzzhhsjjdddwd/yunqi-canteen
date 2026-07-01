@@ -68,7 +68,7 @@ router.get('/me', async (req, res) => {
       return res.status(404).json({ error: '管理员不存在' });
     }
 
-    res.json(admin);
+    res.json({ valid: true, admin });
   } catch (error) {
     console.error('Get admin error:', error);
     res.status(401).json({ error: 'token无效' });

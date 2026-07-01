@@ -113,14 +113,17 @@ const TransactionsPage = () => {
     return hoursDiff <= 24;
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const params: any = {};
     if (typeFilter !== 'all') params.type = typeFilter;
     if (categoryFilter !== 'all') params.category = categoryFilter;
     if (statusFilter !== 'all') params.status = statusFilter;
     if (search) params.search = search;
-    const url = financeAPI.exportTransactions(params);
-    window.open(url, '_blank');
+    try {
+      await financeAPI.exportTransactions(params);
+    } catch (e: any) {
+      alert(e.message || '导出失败');
+    }
   };
 
   const filteredCategories = categories.filter(c => c.type === newTx.type);

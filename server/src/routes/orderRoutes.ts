@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma, io } from "../app.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authMiddleware, adminAuthMiddleware } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
@@ -22,7 +22,7 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'dev-secret-key-change-in-production'
+      process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
     ) as { adminId?: string; username?: string; userId?: string; phone?: string };
     if (decoded.adminId) {
       req.adminId = decoded.adminId;
@@ -167,7 +167,7 @@ router.patch("/:id/delete", optionalAuth, async (req: Request, res, next) => {
 // ====== 管理端接口 (需认证) ======
 
 // 获取统计数据
-router.get("/stats", authMiddleware, async (req, res) => {
+router.get("/stats", adminAuthMiddleware, async (req, res) => {
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [totalOrders, todayOrders, todayRevenue, pendingOrders, totalProducts, totalUsers, preparingOrders, completedOrders, cancelledOrders] = await Promise.all([
@@ -199,7 +199,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
 });
 
 // 获取管理端订单列表（含用户和地址信息，服务端分页）
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", adminAuthMiddleware, async (req, res) => {
   try {
     const { status, paymentStatus, date, search, filter, page = '1', pageSize = '20' } = req.query;
     const pageNum = Math.max(1, Number(page) || 1);
@@ -256,17 +256,7 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// 公开订单列表 (无需认证)
-router.get("/public", async (req, res) => {
-  try {
-    const { status, limit = 50 } = req.query;
-    const orders = await prisma.order.findMany({ where: status ? { status: status as string } : undefined, include: { items: true }, orderBy: { createdAt: "desc" }, take: Number(limit) });
-    res.json(orders);
-  } catch (error) {
-    console.error("Get public orders error:", error);
-    res.status(500).json({ error: "获取订单列表失败" });
-  }
-});
+// 公开订单列表已移除（安全风险：暴露所有订单数据）
 
 // 生成交易流水号
 function generateReferenceNo() {
@@ -339,7 +329,7 @@ async function createTransactionInTx(tx, data) {
 }
 
 // 标记订单已支付（管理端）
-router.patch("/:id/pay", authMiddleware, async (req, res) => {
+router.patch("/:id/pay", adminAuthMiddleware, async (req, res) => {
   try {
     const { paymentMethod = 'cash' } = req.body;
 
@@ -383,7 +373,6 @@ router.patch("/:id/pay", authMiddleware, async (req, res) => {
 
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
-    io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     res.json(order);
   } catch (error) {
     console.error("Mark paid error:", error);
@@ -392,7 +381,7 @@ router.patch("/:id/pay", authMiddleware, async (req, res) => {
 });
 
 // 更新订单状态
-router.patch("/:id/status", authMiddleware, async (req, res) => {
+router.patch("/:id/status", adminAuthMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
     const validStatuses = ["pending", "paid", "making", "completed", "cancelled"];
@@ -400,7 +389,6 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
     const order = await prisma.order.update({ where: { id: req.params.id }, data: { status }, include: { items: true } });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
-    io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status });
     res.json(order);
   } catch (error) {
     console.error("Update order status error:", error);
@@ -409,7 +397,7 @@ router.patch("/:id/status", authMiddleware, async (req, res) => {
 });
 
 // 确认收款
-router.post("/:id/confirm", authMiddleware, async (req, res) => {
+router.post("/:id/confirm", adminAuthMiddleware, async (req, res) => {
   try {
     const { success, paymentMethod = 'cash' } = req.body;
 
@@ -467,10 +455,11 @@ router.post("/:id/confirm", authMiddleware, async (req, res) => {
       return updated;
     });
 
-    io.emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
+    // 定向推送 payment:confirm 给管理端和客户端房间，避免全局广播泄露信息
+    io.to("admin").emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
+    io.to("client").emit("payment:confirm", { orderId: order.id, orderNo: order.orderNo, status: success ? "success" : "failed" });
     io.to("admin").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus, total: order.total, items: order.items, createdAt: order.createdAt });
     io.to("client").emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
-    io.emit("order:status-update", { orderId: order.id, orderNo: order.orderNo, status: order.status, paymentStatus: order.paymentStatus });
     res.json(order);
   } catch (error) {
     console.error("Confirm payment error:", error);
@@ -479,7 +468,7 @@ router.post("/:id/confirm", authMiddleware, async (req, res) => {
 });
 
 // 删除订单
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", adminAuthMiddleware, async (req, res) => {
   try {
     await prisma.order.delete({ where: { id: req.params.id } });
     res.json({ success: true });
