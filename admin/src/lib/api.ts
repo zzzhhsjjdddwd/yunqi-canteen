@@ -1,4 +1,5 @@
 import type { Category, Product, Order, StatsData, Settings } from '../../../shared/types';
+import { useAdminStore } from '../stores/adminStore';
 
 const API_BASE = import.meta.env.DEV ? '' : 'https://yunqi-deploy.onrender.com';
 
@@ -13,8 +14,12 @@ export function resolveImageUrl(url: string | null | undefined): string | null {
   return url;
 }
 
+function getToken() {
+  return useAdminStore.getState().token;
+}
+
 async function request<T>(path: string, options?: RequestInit, authenticated = false): Promise<T> {
-  const token = localStorage.getItem('admin-token');
+  const token = getToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -32,8 +37,8 @@ async function request<T>(path: string, options?: RequestInit, authenticated = f
 
   if (!response.ok) {
     if (response.status === 401) {
-      localStorage.removeItem('admin-token');
-      window.location.href = '/#/login';
+      useAdminStore.getState().logout();
+      window.location.hash = '#/login';
       throw new Error('登录已过期，请重新登录');
     }
     const error = await response.json().catch(() => ({ error: '请求失败，请检查网络连接' }));
@@ -52,10 +57,10 @@ export async function login(username: string, password: string) {
 }
 
 export async function verifyToken() {
-  const token = localStorage.getItem('admin-token');
+  const token = getToken();
   if (!token) return { valid: false };
   try {
-    return request<{ valid: boolean }>('/api/admin/me', {
+    return await request<{ valid: boolean }>('/api/admin/me', {
       headers: { Authorization: `Bearer ${token}` },
     });
   } catch {
@@ -153,7 +158,7 @@ export async function getPaymentQR(): Promise<{ paymentQR: string | null }> {
 }
 
 export async function uploadPaymentQR(file: File): Promise<{ paymentQR: string }> {
-  const token = localStorage.getItem('admin-token');
+  const token = getToken();
   const formData = new FormData();
   formData.append('qr', file);
 
