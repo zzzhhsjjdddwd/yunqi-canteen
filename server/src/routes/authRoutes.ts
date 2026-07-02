@@ -1,12 +1,11 @@
-// @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
+import { SECRET } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getFullUrl } from '../utils/url.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 用户注册
 router.post('/register', async (req, res) => {
@@ -41,7 +40,7 @@ router.post('/register', async (req, res) => {
     // 生成token
     const token = jwt.sign(
       { userId: user.id, phone: user.phone },
-      JWT_SECRET,
+      SECRET,
       { expiresIn: '30d' }
     );
 
@@ -87,7 +86,7 @@ router.post('/login', async (req, res) => {
     // 生成token
     const token = jwt.sign(
       { userId: user.id, phone: user.phone },
-      JWT_SECRET,
+      SECRET,
       { expiresIn: '30d' }
     );
 
@@ -133,7 +132,7 @@ router.post('/auth', async (req, res) => {
 
       const token = jwt.sign(
         { userId: existingUser.id, phone: existingUser.phone },
-        JWT_SECRET,
+        SECRET,
         { expiresIn: '30d' }
       );
 
@@ -161,7 +160,7 @@ router.post('/auth', async (req, res) => {
 
       const token = jwt.sign(
         { userId: user.id, phone: user.phone },
-        JWT_SECRET,
+        SECRET,
         { expiresIn: '30d' }
       );
 
@@ -191,7 +190,7 @@ router.get('/me', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, SECRET) as { userId: string };
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -227,7 +226,7 @@ router.patch('/profile', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, SECRET) as { userId: string };
 
     const { nickname, avatar } = req.body;
 

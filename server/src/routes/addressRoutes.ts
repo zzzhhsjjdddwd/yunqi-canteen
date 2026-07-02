@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
+import { SECRET } from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 验证token中间件
 const authMiddleware = (req: any, res: any, next: any) => {
@@ -14,7 +13,7 @@ const authMiddleware = (req: any, res: any, next: any) => {
   }
   try {
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, SECRET) as { userId: string };
     req.userId = decoded.userId;
     next();
   } catch {

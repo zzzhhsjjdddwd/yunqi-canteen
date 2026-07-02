@@ -17,12 +17,10 @@ export const useAdminStore = create<AdminStore>()(
       token: null,
 
       login: (token, admin) => {
-        localStorage.setItem('admin-token', token);
         set({ isAuthenticated: true, admin, token });
       },
 
       logout: () => {
-        localStorage.removeItem('admin-token');
         set({ isAuthenticated: false, admin: null, token: null });
       },
     }),

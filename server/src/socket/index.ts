@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { SECRET } from '../middleware/auth.js';
 
 interface ClientSocket extends Socket {
   room?: string;

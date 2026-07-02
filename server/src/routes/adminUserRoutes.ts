@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
+import { SECRET } from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // Middleware to verify admin token
 const adminAuth = (req: any, res: any, next: () => void) => {
@@ -14,7 +13,7 @@ const adminAuth = (req: any, res: any, next: () => void) => {
   }
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+    const decoded = jwt.verify(token, SECRET) as { adminId: string };
     req.adminId = decoded.adminId;
     next();
   } catch {

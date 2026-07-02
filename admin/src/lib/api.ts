@@ -31,6 +31,11 @@ async function request<T>(path: string, options?: RequestInit, authenticated = f
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('admin-token');
+      window.location.href = '/#/login';
+      throw new Error('登录已过期，请重新登录');
+    }
     const error = await response.json().catch(() => ({ error: '请求失败，请检查网络连接' }));
     throw new Error(error.error || '请求失败，请检查网络连接');
   }

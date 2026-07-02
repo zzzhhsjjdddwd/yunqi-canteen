@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { adminAuthMiddleware } from '../middleware/auth.js';
+import { prisma } from '../app.js';
 import {
   generateReferenceNo,
   generateInvoiceNo,
@@ -12,7 +12,6 @@ import {
   initFinanceCategories,
 } from '../utils/financeService.js';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 initFinanceCategories().catch(console.error);

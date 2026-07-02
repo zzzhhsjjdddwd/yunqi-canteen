@@ -10,6 +10,7 @@ import { useOrderStore } from './stores/orderStore';
 import { joinAdminRoom, onNewOrder, onOrderCancelled, getSocket } from './lib/socket';
 import { useSpeaker } from './hooks/useSpeaker';
 import { usePwaUpdate } from './hooks/usePwaUpdate';
+import { verifyToken } from './lib/api';
 import type { NewOrderData } from '../../shared/types';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -58,8 +59,9 @@ function AnimatedOutlet({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { isAuthenticated } = useAdminStore();
+  const { isAuthenticated, logout } = useAdminStore();
   const { addOrder } = useOrderStore();
+  const [authChecked, setAuthChecked] = useState(false);
   const [newOrders, setNewOrders] = useState<NewOrderData[]>([]);
   const newOrderIdsRef = useRef<Set<string>>(new Set());
 
@@ -67,6 +69,19 @@ function App() {
 
   const notifyNewOrderRef = useRef(notifyNewOrder);
   const notifyCancelledRef = useRef(notifyCancelled);
+
+  useEffect(() => {
+    async function checkAuth() {
+      if (isAuthenticated) {
+        const result = await verifyToken();
+        if (!result.valid) {
+          logout();
+        }
+      }
+      setAuthChecked(true);
+    }
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     notifyNewOrderRef.current = notifyNewOrder;
@@ -208,6 +223,16 @@ function App() {
       }
     };
   }, [isAuthenticated]);
+
+  if (!authChecked) {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loading />
+        </div>
+      </ErrorBoundary>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

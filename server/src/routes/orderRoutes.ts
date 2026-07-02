@@ -37,7 +37,7 @@ function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
+SECRET
     ) as { adminId?: string; username?: string; userId?: string; phone?: string };
     if (decoded.adminId) {
       req.adminId = decoded.adminId;

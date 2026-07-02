@@ -1,11 +1,10 @@
-// @ts-nocheck
 import { Router } from 'express';
 import { prisma } from '../app.js';
+import { SECRET } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'cloud-eats-secret-key-2024';
 
 // 管理员登录
 router.post('/login', async (req, res) => {
@@ -31,7 +30,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(
       { adminId: admin.id, username: admin.username },
-      JWT_SECRET,
+      SECRET,
       { expiresIn: '7d' }
     );
 
@@ -57,7 +56,7 @@ router.get('/me', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+    const decoded = jwt.verify(token, SECRET) as { adminId: string };
 
     const admin = await prisma.admin.findUnique({
       where: { id: decoded.adminId },

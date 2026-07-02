@@ -29,7 +29,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (!/^1\d{10}$/.test(phone)) {
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
       setError('请输入正确的手机号');
       return;
     }
