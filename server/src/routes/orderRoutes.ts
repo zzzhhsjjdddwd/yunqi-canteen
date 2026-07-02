@@ -4,6 +4,7 @@ import { prisma, io } from "../app.js";
 import { authMiddleware, adminAuthMiddleware } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+import { createTransactionInTx, generateInvoiceNo } from "../utils/financeService.js";
 
 const router = Router();
 
@@ -89,12 +90,14 @@ router.post("/", optionalAuth, async (req: Request, res) => {
       }
       const quantity = Math.max(1, Math.min(99, parseInt(item.quantity) || 1));
       const price = Math.round(product.price);
-      calculatedTotal += price * quantity;
+      const subtotal = price * quantity;
+      calculatedTotal += subtotal;
       return {
         productId: product.id,
         productName: product.name,
         price,
         quantity,
+        subtotal,
       };
     });
 
@@ -272,76 +275,6 @@ router.get("/", adminAuthMiddleware, async (req, res) => {
 
 // 公开订单列表已移除（安全风险：暴露所有订单数据）
 
-// 生成交易流水号
-function generateReferenceNo() {
-  const date = new Date();
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `TX${y}${m}${d}${rand}`;
-}
-
-// 计算当前账户余额
-async function getCurrentBalance(prisma) {
-  const lastTx = await prisma.transaction.findFirst({
-    where: { status: 'completed' },
-    orderBy: { createdAt: 'desc' },
-  });
-  return lastTx?.balanceAfter || 0;
-}
-
-// 创建交易记录
-async function createTransaction(prisma, data) {
-  const currentBalance = await getCurrentBalance(prisma);
-  const newBalance = data.type === 'income'
-    ? currentBalance + data.amount
-    : currentBalance - data.amount;
-
-  return prisma.transaction.create({
-    data: {
-      type: data.type,
-      category: data.category,
-      amount: data.amount,
-      balanceAfter: newBalance,
-      orderId: data.orderId,
-      description: data.description,
-      remark: data.remark,
-      operator: data.operator,
-      referenceNo: generateReferenceNo(),
-      paymentMethod: data.paymentMethod,
-      status: 'completed',
-    },
-  });
-}
-
-async function createTransactionInTx(tx, data) {
-  const lastTx = await tx.transaction.findFirst({
-    orderBy: { createdAt: 'desc' },
-    select: { balanceAfter: true },
-  });
-  const currentBalance = lastTx?.balanceAfter || 0;
-  const newBalance = data.type === 'income'
-    ? currentBalance + data.amount
-    : currentBalance - data.amount;
-
-  return tx.transaction.create({
-    data: {
-      type: data.type,
-      category: data.category,
-      amount: data.amount,
-      balanceAfter: newBalance,
-      orderId: data.orderId,
-      description: data.description,
-      remark: data.remark,
-      operator: data.operator,
-      referenceNo: generateReferenceNo(),
-      paymentMethod: data.paymentMethod,
-      status: 'completed',
-    },
-  });
-}
-
 // 标记订单已支付（管理端）
 router.patch("/:id/pay", adminAuthMiddleware, async (req, res) => {
   try {
@@ -369,6 +302,28 @@ router.patch("/:id/pay", adminAuthMiddleware, async (req, res) => {
         where: { id: req.params.id },
         data: { paymentStatus: "paid", status: "paid" },
         include: { items: true }
+      });
+
+      // 创建销售账单
+      const invoiceNo = generateInvoiceNo('sale');
+      await tx.invoice.create({
+        data: {
+          invoiceNo,
+          type: 'sale',
+          amount: updated.total,
+          orderId: updated.id,
+          status: 'paid',
+          items: updated.items.map((item: any) => ({
+            productId: item.productId,
+            productName: item.productName,
+            price: item.price,
+            quantity: item.quantity,
+            subtotal: item.price * item.quantity,
+          })),
+          operator: req.adminUsername || 'admin',
+          issuedAt: new Date(),
+          paidAt: new Date(),
+        },
       });
 
       // 创建交易记录（收入）
@@ -439,8 +394,31 @@ router.post("/:id/confirm", adminAuthMiddleware, async (req, res) => {
         include: { items: true }
       });
 
-      // 支付成功时创建交易记录（收入）
+      const invoiceItems = updated.items.map((item: any) => ({
+        productId: item.productId,
+        productName: item.productName,
+        price: item.price,
+        quantity: item.quantity,
+        subtotal: item.price * item.quantity,
+      }));
+
+      // 支付成功时创建销售账单 + 收入交易
       if (success && existingOrder.paymentStatus !== 'paid') {
+        const invoiceNo = generateInvoiceNo('sale');
+        await tx.invoice.create({
+          data: {
+            invoiceNo,
+            type: 'sale',
+            amount: updated.total,
+            orderId: updated.id,
+            status: 'paid',
+            items: invoiceItems,
+            operator: req.adminUsername || 'admin',
+            issuedAt: new Date(),
+            paidAt: new Date(),
+          },
+        });
+
         await createTransactionInTx(tx, {
           type: 'income',
           category: '销售收入',
@@ -452,8 +430,24 @@ router.post("/:id/confirm", adminAuthMiddleware, async (req, res) => {
         });
       }
 
-      // 支付失败时创建退款支出记录
+      // 支付失败时创建退款账单 + 支出交易
       if (!success && existingOrder.paymentStatus !== 'paid') {
+        const invoiceNo = generateInvoiceNo('refund');
+        await tx.invoice.create({
+          data: {
+            invoiceNo,
+            type: 'refund',
+            amount: updated.total,
+            orderId: updated.id,
+            status: 'refunded',
+            items: invoiceItems,
+            remark: '客户支付失败退款',
+            operator: req.adminUsername || 'admin',
+            issuedAt: new Date(),
+            paidAt: new Date(),
+          },
+        });
+
         await createTransactionInTx(tx, {
           type: 'expense',
           category: '退款支出',

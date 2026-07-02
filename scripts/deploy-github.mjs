@@ -74,7 +74,7 @@ async function deploy() {
     });
     
     treeItems.push({
-      path: file.path,
+      path: `dist-static/${file.path}`,
       mode: '100644',
       type: 'blob',
       sha: blob.sha,

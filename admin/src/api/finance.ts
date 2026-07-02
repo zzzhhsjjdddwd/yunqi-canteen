@@ -220,6 +220,30 @@ export const financeAPI = {
       method: 'DELETE',
     }),
 
+  updateTransaction: (id: string, data: any) =>
+    request<Transaction>(`/api/admin/finance/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  reverseTransaction: (id: string, reason: string) =>
+    request<Transaction>(`/api/admin/finance/transactions/${id}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  batchDeleteTransactions: (ids: string[]) =>
+    request<{ message: string }>('/api/admin/finance/transactions/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
+
+  adjustBalance: (data: { amount: number; reason: string; category?: string }) =>
+    request<Transaction>('/api/admin/finance/balance-adjust', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   exportTransactions: (params?: any) => {
     const sp = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -229,10 +253,30 @@ export const financeAPI = {
     return downloadWithAuth(`/api/admin/finance/transactions/export/csv${q ? `?${q}` : ''}`);
   },
 
-  getCategories: (type?: string) => {
-    const q = type ? `?type=${type}` : '';
-    return request<FinanceCategory[]>(`/api/admin/finance/categories${q}`);
+  getCategories: (type?: string, includeInactive?: boolean) => {
+    const sp = new URLSearchParams();
+    if (type) sp.set('type', type);
+    if (includeInactive) sp.set('includeInactive', 'true');
+    const q = sp.toString();
+    return request<FinanceCategory[]>(`/api/admin/finance/categories${q ? `?${q}` : ''}`);
   },
+
+  createCategory: (data: any) =>
+    request<FinanceCategory>('/api/admin/finance/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateCategory: (id: string, data: any) =>
+    request<FinanceCategory>(`/api/admin/finance/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteCategory: (id: string) =>
+    request<{ message: string }>(`/api/admin/finance/categories/${id}`, {
+      method: 'DELETE',
+    }),
 
   getTrend: (params?: any) => {
     const sp = new URLSearchParams();
@@ -284,6 +328,33 @@ export const financeAPI = {
   getMonthlyReport: (year?: number) => {
     const q = year ? `?year=${year}` : '';
     return request<MonthlyReport>(`/api/admin/finance/report/monthly${q}`);
+  },
+
+  getReport: (granularity: string, params?: any) => {
+    const sp = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    });
+    const q = sp.toString();
+    return request<any>(`/api/admin/finance/report/${granularity}${q ? `?${q}` : ''}`);
+  },
+
+  getCategoryReport: (params?: any) => {
+    const sp = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    });
+    const q = sp.toString();
+    return request<any>(`/api/admin/finance/report/by-category${q ? `?${q}` : ''}`);
+  },
+
+  exportReport: (granularity: string, params?: any) => {
+    const sp = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== '') sp.set(k, String(v));
+    });
+    const q = sp.toString();
+    return downloadWithAuth(`/api/admin/finance/report/${granularity}/export/csv${q ? `?${q}` : ''}`);
   },
 
   exportMonthlyReport: (year?: number) => {

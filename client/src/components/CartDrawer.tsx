@@ -107,34 +107,38 @@ export default function CartDrawer({ trigger, isEmpty }: CartDrawerProps) {
                           removedId === product.id ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                         )}
                       >
-                        <img
-                          src={product.image || '/placeholder.png'}
-                          alt={product.name}
-                          className="h-12 w-12 rounded-lg object-cover shadow-sm flex-shrink-0"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="h-12 w-12 rounded-lg object-cover shadow-sm flex-shrink-0"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center flex-shrink-0">
+                            <ShoppingBag className="h-5 w-5 text-primary/40" />
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-sm text-gray-900 truncate">{product.name}</h4>
                           <p className="text-xs font-semibold gradient-text">{formatPrice(product.price)}</p>
                         </div>
                         <div className="flex items-center gap-0.5">
                           <button
-                            onClick={() => updateQuantity(product.id, quantity - 1)}
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, quantity - 1); }}
                             className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary hover:scale-105 active:scale-95"
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </button>
                           <span className="w-6 text-center text-sm font-semibold">{quantity}</span>
                           <button
-                            onClick={() => updateQuantity(product.id, quantity + 1)}
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, quantity + 1); }}
                             className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary hover:scale-105 active:scale-95"
                           >
                             <Plus className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => handleRemove(product.id)}
+                            onClick={(e) => { e.stopPropagation(); handleRemove(product.id); }}
                             className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-destructive/70 transition-all hover:bg-destructive/10 hover:text-destructive hover:scale-105 active:scale-95"
                           >
                             <Trash2 className="h-3.5 w-3.5" />

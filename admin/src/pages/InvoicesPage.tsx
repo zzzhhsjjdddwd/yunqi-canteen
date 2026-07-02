@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { financeAPI, formatPrice, formatDateTime } from '../api/finance';
 import { useToast } from '../components/ui/Toast';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
@@ -12,6 +12,8 @@ const InvoicesPage = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { showToast } = useToast();
@@ -29,7 +31,7 @@ const InvoicesPage = () => {
 
   useEffect(() => {
     loadInvoices();
-  }, [page, typeFilter, statusFilter]);
+  }, [page, typeFilter, statusFilter, startDate, endDate]);
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -40,6 +42,8 @@ const InvoicesPage = () => {
         type: typeFilter,
         status: statusFilter,
         search: search || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
       });
       setInvoices(result.list || []);
       setTotal(result.total || 0);
@@ -71,23 +75,30 @@ const InvoicesPage = () => {
       setShowAddDialog(false);
       setNewInvoice({ type: 'sale', amount: '', customerName: '', customerPhone: '', remark: '', dueDate: '' });
       loadInvoices();
-    } catch (error) {
+      showToast('创建成功');
+    } catch (error: any) {
       console.error('Create invoice error:', error);
-      showToast('创建失败，请重试');
+      showToast(error.message || '创建失败，请重试');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleUpdateStatus = async (id: string, status: string) => {
-    if (!await confirm(`确定要${status === 'paid' ? '标记为已支付' : status === 'cancelled' ? '取消' : '退款'}此账单吗？`)) return;
+    const statusLabels: Record<string, string> = {
+      paid: '标记为已支付',
+      cancelled: '取消',
+      refunded: '退款',
+    };
+    if (!await confirm(`确定要${statusLabels[status] || status}此账单吗？`)) return;
     try {
       await financeAPI.updateInvoiceStatus(id, status, 'admin');
       loadInvoices();
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    } catch (error) {
+      showToast('操作成功');
+    } catch (error: any) {
       console.error('Update invoice error:', error);
-      showToast('操作失败，请重试');
+      showToast(error.message || '操作失败，请重试');
     }
   };
 
@@ -97,10 +108,51 @@ const InvoicesPage = () => {
       await financeAPI.deleteInvoice(id);
       loadInvoices();
       if (selectedInvoice?.id === id) setSelectedInvoice(null);
+      showToast('删除成功');
     } catch (error: any) {
       console.error('Delete invoice error:', error);
-      const msg = error?.response?.data?.error || '删除失败，请重试';
+      const msg = error?.response?.data?.error || error.message || '删除失败，请重试';
       showToast(msg);
+    }
+  };
+
+  const handleExport = async () => {
+    const params: any = {};
+    if (typeFilter !== 'all') params.type = typeFilter;
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (search) params.search = search;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    try {
+      const sp = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== '' && v !== 'all') sp.set(k, String(v));
+      });
+      const q = sp.toString();
+      const token = localStorage.getItem('admin-token');
+      const API_BASE = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || 'https://yunqi-deploy.onrender.com');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch(`${API_BASE}/api/admin/finance/invoices/export/csv${q ? `?${q}` : ''}`, { headers });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: '导出失败' }));
+        throw new Error(error.error || '导出失败');
+      }
+      const blob = await response.blob();
+      const cd = response.headers.get('Content-Disposition') || '';
+      let filename = 'invoices.csv';
+      const match = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      if (match) filename = decodeURIComponent(match[1]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      showToast(e.message || '导出失败');
     }
   };
 
@@ -126,6 +178,19 @@ const InvoicesPage = () => {
 
   const totalPages = Math.ceil(total / pageSize);
 
+  const summaryStats = useMemo(() => {
+    const filtered = invoices;
+    const totalAmount = filtered.reduce((sum, inv) => {
+      if (inv.status === 'paid' || inv.status === 'refunded') {
+        return sum + (inv.type === 'sale' ? inv.amount : -inv.amount);
+      }
+      return sum;
+    }, 0);
+    const unpaidCount = filtered.filter(i => i.status === 'unpaid').length;
+    const unpaidAmount = filtered.filter(i => i.status === 'unpaid').reduce((s, i) => s + i.amount, 0);
+    return { totalAmount, unpaidCount, unpaidAmount };
+  }, [invoices]);
+
   return (
     <div className="space-y-6">
       {ConfirmDialogComponent}
@@ -134,19 +199,62 @@ const InvoicesPage = () => {
           <h1 className="text-2xl font-bold gradient-text-gold">账单管理</h1>
           <p className="text-sm text-muted-foreground mt-1">共 {total} 条账单</p>
         </div>
-        <button
-          onClick={() => setShowAddDialog(true)}
-          className="px-5 py-2.5 rounded-xl glass-button text-sm font-medium flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          新建账单
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="px-4 py-2.5 rounded-xl border border-white/50 bg-white/60 text-sm font-medium flex items-center gap-2 hover:bg-white/80 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" x2="12" y1="15" y2="3" />
+            </svg>
+            导出
+          </button>
+          <button
+            onClick={() => setShowAddDialog(true)}
+            className="px-5 py-2.5 rounded-xl glass-button text-sm font-medium flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            新建账单
+          </button>
+        </div>
       </div>
 
+      {/* 统计卡片 */}
+      {page === 1 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="stat-card group">
+            <div className="stat-card__glow" />
+            <div className="stat-card__content">
+              <span className="text-sm text-muted-foreground">当前页已收金额</span>
+              <div className="text-2xl font-bold text-success mt-2">{formatPrice(summaryStats.totalAmount >= 0 ? summaryStats.totalAmount : 0)}</div>
+              <div className="text-xs text-muted-foreground mt-1">已支付/已退款</div>
+            </div>
+          </div>
+          <div className="stat-card group">
+            <div className="stat-card__glow" style={{ background: 'linear-gradient(135deg, rgba(201,169,110,0.2), transparent)' }} />
+            <div className="stat-card__content">
+              <span className="text-sm text-muted-foreground">待收款账单</span>
+              <div className="text-2xl font-bold text-amber-600 mt-2">{summaryStats.unpaidCount}</div>
+              <div className="text-xs text-muted-foreground mt-1">待收 {formatPrice(summaryStats.unpaidAmount)}</div>
+            </div>
+          </div>
+          <div className="stat-card group">
+            <div className="stat-card__glow" style={{ background: 'linear-gradient(135deg, rgba(139,126,200,0.2), transparent)' }} />
+            <div className="stat-card__content">
+              <span className="text-sm text-muted-foreground">账单总数</span>
+              <div className="text-2xl font-bold gradient-text-gold mt-2">{total}</div>
+              <div className="text-xs text-muted-foreground mt-1">全部账单记录</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 筛选栏 */}
-      <div className="glass-card p-4">
+      <div className="glass-card p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 p-1 rounded-xl bg-white/40">
             {['all', 'sale', 'expense', 'refund'].map(t => (
@@ -189,6 +297,33 @@ const InvoicesPage = () => {
             </svg>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">日期：</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className="px-3 py-2 rounded-xl bg-white/60 border border-white/50 text-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <span className="text-muted-foreground">至</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="px-3 py-2 rounded-xl bg-white/60 border border-white/50 text-sm backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {(startDate || endDate) && (
+              <button
+                onClick={() => { setStartDate(''); setEndDate(''); setPage(1); }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                清除
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 账单列表 */}
@@ -214,6 +349,7 @@ const InvoicesPage = () => {
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">账单号</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">类型</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">客户</th>
+                    <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">关联订单</th>
                     <th className="text-right py-3 px-5 text-sm font-medium text-muted-foreground">金额</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">状态</th>
                     <th className="text-left py-3 px-5 text-sm font-medium text-muted-foreground">开票日期</th>
@@ -222,9 +358,9 @@ const InvoicesPage = () => {
                 </thead>
                 <tbody>
                   {invoices.map((inv) => (
-                    <tr key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-colors">
+                    <tr key={inv.id} className="border-b border-white/5 hover:bg-white/30 transition-colors cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                       <td className="py-4 px-5">
-                        <span className="font-mono text-sm font-medium cursor-pointer hover:text-primary" onClick={() => setSelectedInvoice(inv)}>
+                        <span className="font-mono text-sm font-medium text-primary hover:underline">
                           {inv.invoiceNo}
                         </span>
                       </td>
@@ -241,6 +377,11 @@ const InvoicesPage = () => {
                         {inv.customerName || '-'}
                         {inv.customerPhone && <span className="text-muted-foreground ml-2">{inv.customerPhone}</span>}
                       </td>
+                      <td className="py-4 px-5 text-sm">
+                        {inv.order?.orderNo ? (
+                          <span className="text-primary font-mono text-xs">{inv.order.orderNo}</span>
+                        ) : '-'}
+                      </td>
                       <td className={`py-4 px-5 text-right font-semibold text-sm ${inv.type === 'sale' ? 'text-success' : 'text-error'}`}>
                         {inv.type === 'sale' ? '+' : '-'}{formatPrice(inv.amount)}
                       </td>
@@ -255,7 +396,7 @@ const InvoicesPage = () => {
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => setSelectedInvoice(inv)}
+                            onClick={(e) => { e.stopPropagation(); setSelectedInvoice(inv); }}
                             className="text-xs text-primary hover:underline"
                           >
                             详情
@@ -263,13 +404,13 @@ const InvoicesPage = () => {
                           {inv.status === 'unpaid' && (
                             <>
                               <button
-                                onClick={() => handleUpdateStatus(inv.id, 'paid')}
+                                onClick={(e) => { e.stopPropagation(); handleUpdateStatus(inv.id, 'paid'); }}
                                 className="text-xs text-success hover:underline"
                               >
                                 收款
                               </button>
                               <button
-                                onClick={() => handleUpdateStatus(inv.id, 'cancelled')}
+                                onClick={(e) => { e.stopPropagation(); handleUpdateStatus(inv.id, 'cancelled'); }}
                                 className="text-xs text-muted-foreground hover:text-foreground"
                               >
                                 取消
@@ -278,7 +419,7 @@ const InvoicesPage = () => {
                           )}
                           {inv.status === 'paid' && inv.type === 'sale' && (
                             <button
-                              onClick={() => handleUpdateStatus(inv.id, 'refunded')}
+                              onClick={(e) => { e.stopPropagation(); handleUpdateStatus(inv.id, 'refunded'); }}
                               className="text-xs text-error hover:underline"
                             >
                               退款
@@ -286,7 +427,7 @@ const InvoicesPage = () => {
                           )}
                           {(inv.status === 'unpaid' || inv.status === 'cancelled') && (
                             <button
-                              onClick={() => handleDeleteInvoice(inv.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(inv.id); }}
                               className="text-xs text-destructive hover:underline"
                             >
                               删除
@@ -307,14 +448,30 @@ const InvoicesPage = () => {
                   <button
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="w-8 h-8 rounded-lg bg-white/40 text-sm hover:bg-white/60 disabled:opacity-50 flex items-center justify-center"
+                    className="w-8 h-8 rounded-lg bg-white/40 text-sm hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     ‹
                   </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let p;
+                    if (totalPages <= 5) p = i + 1;
+                    else if (page <= 3) p = i + 1;
+                    else if (page >= totalPages - 2) p = totalPages - 4 + i;
+                    else p = page - 2 + i;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm ${page === p ? 'bg-primary text-white' : 'bg-white/40 hover:bg-white/60'}`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="w-8 h-8 rounded-lg bg-white/40 text-sm hover:bg-white/60 disabled:opacity-50 flex items-center justify-center"
+                    className="w-8 h-8 rounded-lg bg-white/40 text-sm hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     ›
                   </button>
@@ -421,7 +578,7 @@ const InvoicesPage = () => {
       {/* 账单详情弹窗 */}
       {selectedInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedInvoice(null)}>
-          <div className="w-full max-w-lg rounded-2xl border-white/50 bg-white/95 backdrop-blur-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-2xl rounded-2xl border-white/50 bg-white/95 backdrop-blur-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">账单详情</h3>
               <button onClick={() => setSelectedInvoice(null)} className="text-muted-foreground hover:text-foreground">
@@ -431,7 +588,7 @@ const InvoicesPage = () => {
               </button>
             </div>
 
-            <div className="text-center mb-6">
+            <div className="text-center mb-6 pb-6 border-b border-white/10">
               <div className="text-sm text-muted-foreground mb-1">账单金额</div>
               <div className={`text-4xl font-bold ${selectedInvoice.type === 'sale' ? 'text-success' : 'text-error'}`}>
                 {selectedInvoice.type === 'sale' ? '+' : '-'}{formatPrice(selectedInvoice.amount)}
@@ -441,53 +598,121 @@ const InvoicesPage = () => {
               </span>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">账单号</span>
-                <span className="text-sm font-mono">{selectedInvoice.invoiceNo}</span>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-2 border-b border-white/10">
+                  <span className="text-sm text-muted-foreground">账单号</span>
+                  <span className="text-sm font-mono">{selectedInvoice.invoiceNo}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-white/10">
+                  <span className="text-sm text-muted-foreground">账单类型</span>
+                  <span className="text-sm">{getTypeLabel(selectedInvoice.type)}</span>
+                </div>
+                {selectedInvoice.customerName && (
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-sm text-muted-foreground">客户名称</span>
+                    <span className="text-sm">{selectedInvoice.customerName}</span>
+                  </div>
+                )}
+                {selectedInvoice.customerPhone && (
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-sm text-muted-foreground">联系电话</span>
+                    <span className="text-sm">{selectedInvoice.customerPhone}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">账单类型</span>
-                <span className="text-sm">{getTypeLabel(selectedInvoice.type)}</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-2 border-b border-white/10">
+                  <span className="text-sm text-muted-foreground">开票日期</span>
+                  <span className="text-sm">{selectedInvoice.issuedAt ? formatDateTime(selectedInvoice.issuedAt) : '-'}</span>
+                </div>
+                {selectedInvoice.paidAt && (
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-sm text-muted-foreground">支付时间</span>
+                    <span className="text-sm">{formatDateTime(selectedInvoice.paidAt)}</span>
+                  </div>
+                )}
+                {selectedInvoice.dueDate && (
+                  <div className="flex items-center justify-between py-2 border-b border-white/10">
+                    <span className="text-sm text-muted-foreground">到期日期</span>
+                    <span className="text-sm">{formatDateTime(selectedInvoice.dueDate)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2 border-b border-white/10">
+                  <span className="text-sm text-muted-foreground">操作人</span>
+                  <span className="text-sm">{selectedInvoice.operator || '-'}</span>
+                </div>
               </div>
-              {selectedInvoice.customerName && (
-                <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                  <span className="text-sm text-muted-foreground">客户名称</span>
-                  <span className="text-sm">{selectedInvoice.customerName}</span>
+            </div>
+
+            {/* 关联订单 */}
+            {selectedInvoice.order && (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-3">关联订单</h4>
+                <div className="p-4 rounded-xl bg-white/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">订单号</span>
+                    <span className="text-sm font-mono font-medium">{selectedInvoice.order.orderNo}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">订单金额</span>
+                    <span className="text-sm font-medium">{formatPrice(selectedInvoice.order.total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">下单时间</span>
+                    <span className="text-sm">{formatDateTime(selectedInvoice.order.createdAt)}</span>
+                  </div>
+                  
+                  {/* 订单项 */}
+                  {selectedInvoice.order.items && selectedInvoice.order.items.length > 0 && (
+                    <div className="pt-3 border-t border-white/10">
+                      <div className="text-sm text-muted-foreground mb-2">商品明细</div>
+                      <div className="space-y-2">
+                        {selectedInvoice.order.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">×{item.quantity}</span>
+                              <span>{item.productName}</span>
+                            </div>
+                            <span>{formatPrice(item.price * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {selectedInvoice.customerPhone && (
-                <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                  <span className="text-sm text-muted-foreground">联系电话</span>
-                  <span className="text-sm">{selectedInvoice.customerPhone}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">开票日期</span>
-                <span className="text-sm">{selectedInvoice.issuedAt ? formatDateTime(selectedInvoice.issuedAt) : '-'}</span>
               </div>
-              {selectedInvoice.paidAt && (
-                <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                  <span className="text-sm text-muted-foreground">支付时间</span>
-                  <span className="text-sm">{formatDateTime(selectedInvoice.paidAt)}</span>
+            )}
+
+            {/* 账单明细项 */}
+            {selectedInvoice.items && Array.isArray(selectedInvoice.items) && selectedInvoice.items.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-3">账单明细</h4>
+                <div className="p-4 rounded-xl bg-white/60 space-y-2">
+                  {selectedInvoice.items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between text-sm py-1">
+                      <div className="flex items-center gap-2">
+                        {item.quantity && <span className="text-muted-foreground">×{item.quantity}</span>}
+                        <span>{item.name || item.productName || item.description}</span>
+                      </div>
+                      <span>{formatPrice(item.amount || item.price * (item.quantity || 1))}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {selectedInvoice.dueDate && (
-                <div className="flex items-center justify-between py-2.5 border-b border-white/10">
-                  <span className="text-sm text-muted-foreground">到期日期</span>
-                  <span className="text-sm">{formatDateTime(selectedInvoice.dueDate)}</span>
-                </div>
-              )}
-              {selectedInvoice.remark && (
-                <div className="py-2.5 border-b border-white/10">
-                  <span className="text-sm text-muted-foreground block mb-1">备注</span>
-                  <span className="text-sm">{selectedInvoice.remark}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-muted-foreground">创建时间</span>
-                <span className="text-sm">{formatDateTime(selectedInvoice.createdAt)}</span>
               </div>
+            )}
+
+            {/* 备注 */}
+            {selectedInvoice.remark && (
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold mb-2">备注</h4>
+                <div className="p-4 rounded-xl bg-white/60 text-sm">{selectedInvoice.remark}</div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between py-2 text-xs text-muted-foreground">
+              <span>创建时间：{formatDateTime(selectedInvoice.createdAt)}</span>
+              <span>更新时间：{formatDateTime(selectedInvoice.updatedAt)}</span>
             </div>
 
             {/* 操作按钮 */}
@@ -498,6 +723,14 @@ const InvoicesPage = () => {
               >
                 关闭
               </button>
+              {(selectedInvoice.status === 'unpaid' || selectedInvoice.status === 'cancelled') && (
+                <button
+                  onClick={() => handleDeleteInvoice(selectedInvoice.id)}
+                  className="px-4 py-2.5 rounded-xl border border-error/30 bg-error/10 text-error text-sm font-medium hover:bg-error/20"
+                >
+                  删除
+                </button>
+              )}
               {selectedInvoice.status === 'unpaid' && (
                 <button
                   onClick={() => handleUpdateStatus(selectedInvoice.id, 'paid')}
