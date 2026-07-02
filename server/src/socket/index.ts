@@ -18,7 +18,7 @@ export function setupSocket(io: Server) {
       if (token) {
         const decoded = jwt.verify(
           token,
-          process.env.JWT_SECRET || 'cloud-eats-secret-key-2024'
+SECRET
         ) as { adminId?: string; userId?: string };
         if (decoded.adminId) socket.adminId = decoded.adminId;
         if (decoded.userId) {

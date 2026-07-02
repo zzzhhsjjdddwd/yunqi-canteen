@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Router, Request, Response, NextFunction } from "express";
 import { prisma, io } from "../app.js";
-import { authMiddleware, adminAuthMiddleware } from "../middleware/auth.js";
+import { authMiddleware, adminAuthMiddleware, SECRET } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { createTransactionInTx, generateInvoiceNo } from "../utils/financeService.js";
